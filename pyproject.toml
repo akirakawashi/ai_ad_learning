@@ -1,0 +1,23 @@
+[project]
+name = "ai-ad-learning"
+version = "0.1.0"
+description = "Pre-labelling and training data preparation for the AI Ad billboard detector"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "ultralytics==8.4.63",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.1.0",
+    "pytest>=8.4.0",
+    "ruff>=0.15.18",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
