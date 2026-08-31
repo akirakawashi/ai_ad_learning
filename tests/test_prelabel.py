@@ -89,3 +89,24 @@ def test_cvat_bundle_carries_annotations_without_the_photos(tmp_path: Path) -> N
         assert names == {"obj.names", "obj.data", "train.txt", "obj_train_data/one.txt"}
         assert bundle.read("train.txt").decode() == "obj_train_data/one.jpg\n"
         assert bundle.read("obj.names").decode() == "ad_object\n"
+
+
+def test_review_bundle_takes_only_what_needs_a_human(tmp_path: Path) -> None:
+    """Уверенные кадры в пачки не попадают, порядок — как в списке проверки."""
+
+    from prelabel_tool.bundle import chunks, files_to_review
+
+    report = tmp_path / "report.csv"
+    report.write_text(
+        "file,width,height,boxes,min_confidence,max_confidence,status\n"
+        "sure.jpg,10,10,1,0.9000,0.9000,ок\n"
+        "shaky.jpg,10,10,1,0.4500,0.9000,слабая\n"
+        "blank.jpg,10,10,0,0.0000,0.0000,пусто\n"
+        "shakier.jpg,10,10,1,0.2600,0.9000,слабая\n",
+        encoding="utf-8",
+    )
+
+    names = files_to_review(report)
+
+    assert names == ["blank.jpg", "shakier.jpg", "shaky.jpg"]
+    assert chunks(names, 2) == [["blank.jpg", "shakier.jpg"], ["shaky.jpg"]]
