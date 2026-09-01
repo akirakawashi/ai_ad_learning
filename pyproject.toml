@@ -1,11 +1,15 @@
 [project]
 name = "ai-ad-learning"
 version = "0.1.0"
-description = "Pre-labelling and training data preparation for the AI Ad billboard detector"
+description = "Подготовка данных и обучение моделей AI Ad: детекция щитов и классификация"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "ultralytics==8.4.63",
+    "scikit-learn>=1.5",
 ]
+
+[project.scripts]
+adlearn = "adlearn.cli:main"
 
 [dependency-groups]
 dev = [
@@ -14,10 +18,24 @@ dev = [
     "ruff>=0.15.18",
 ]
 
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/adlearn"]
+
 [tool.pytest.ini_options]
-pythonpath = ["."]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.mypy]
 python_version = "3.12"
 ignore_missing_imports = true
+files = ["src", "tests"]

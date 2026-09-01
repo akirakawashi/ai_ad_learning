@@ -4,14 +4,21 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-raw/
-export/
-prelabel/
-dataset/
-runs/
-preview/
+# данные и веса: тяжёлые, живут вне Git
+data/
+models/*/
+!models/*/.gitkeep
 
 *.zip
 *.pt
+
+# картинки нигде не коммитим, где бы ни лежали
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.bmp
+*.tif
+*.tiff
 
 .env
