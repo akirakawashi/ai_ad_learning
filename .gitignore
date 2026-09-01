@@ -5,7 +5,12 @@ __pycache__/
 .ruff_cache/
 
 raw/
+export/
 prelabel/
-models/**/*.pt
+dataset/
+runs/
+
+*.zip
+*.pt
 
 .env
