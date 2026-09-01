@@ -9,6 +9,7 @@ export/
 prelabel/
 dataset/
 runs/
+preview/
 
 *.zip
 *.pt
