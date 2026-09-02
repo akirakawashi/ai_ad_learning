@@ -1,0 +1,87 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import cv2
+import numpy as np
+
+from adlearn.classification.vlm import (
+    BASIS_COLORS,
+    BASIS_LOGO,
+    BASIS_NAME,
+    MAX_SIDE,
+    VERDICT_CONFIRMED,
+    VERDICT_REJECTED,
+    VERDICT_REVIEW,
+    VlmAnswer,
+    encode,
+)
+
+
+def answer(**kwargs: object) -> VlmAnswer:
+    base = {
+        "path": Path("frame.jpg"),
+        "brand": "tele2",
+        "basis": BASIS_NAME,
+        "evidence": "",
+        "visible_text": "",
+    }
+    return VlmAnswer(**{**base, **kwargs})  # type: ignore[arg-type]
+
+
+def test_name_read_and_confirmed_by_text_is_trusted() -> None:
+    item = answer(visible_text="ЛОВИТ ВЕЗДЕ, ГДЕ ВАМ НУЖНО t2.ru")
+
+    assert item.verdict == VERDICT_CONFIRMED
+    assert item.decided() == "tele2"
+
+
+def test_claimed_name_without_the_name_in_text_is_downgraded() -> None:
+    """Модель противоречит сама себе — так выглядели все ложные срабатывания.
+
+    «Прочитал название», а в тексте «Go» или «БИЗНЕС»: на самом деле бренд
+    достроен по цвету и одной букве.
+    """
+
+    item = answer(brand="beeline", visible_text="Go")
+
+    assert item.verdict == VERDICT_REVIEW
+    assert item.decided() == "unclear"
+
+
+def test_logo_without_a_name_waits_for_a_human() -> None:
+    """Знак t2 без надписи — честный довод, но отличить его от чужой буквы T нельзя."""
+
+    item = answer(basis=BASIS_LOGO, evidence="знак t2 в белом круге")
+
+    assert item.verdict == VERDICT_REVIEW
+    assert item.decided() == "unclear"
+    assert item.decided(accept_logo=True) == "tele2"
+
+
+def test_colors_alone_are_rejected() -> None:
+    item = answer(brand="megafon", basis=BASIS_COLORS, evidence="зелёный фон")
+
+    assert item.verdict == VERDICT_REJECTED
+    assert item.decided(accept_logo=True) == "unclear"
+
+
+def test_other_and_unclear_are_not_second_guessed() -> None:
+    for brand in ("other", "unclear"):
+        item = answer(brand=brand, basis=BASIS_COLORS)
+        assert item.decided() == brand
+
+
+def test_large_frames_are_shrunk_before_sending(tmp_path: Path) -> None:
+    """Крупные кадры разворачивались в тысячи токенов и роняли запрос."""
+
+    path = tmp_path / "big.jpg"
+    cv2.imwrite(str(path), np.full((2700, 2700, 3), 200, dtype=np.uint8))
+
+    import base64
+
+    payload = encode(path).split(",", 1)[1]
+    decoded = cv2.imdecode(np.frombuffer(base64.b64decode(payload), np.uint8), cv2.IMREAD_COLOR)
+
+    assert decoded is not None
+    assert max(decoded.shape[:2]) == MAX_SIDE

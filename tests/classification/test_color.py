@@ -64,3 +64,20 @@ def test_yellow_and_black_score_higher_for_beeline_than_for_megafon(tmp_path: Pa
     megafon = values[names.index("megafon_score")]
 
     assert beeline > megafon
+
+
+def test_shortcut_features_carry_no_brand_information(tmp_path: Path) -> None:
+    """Диагностическая арма должна мерить источник кадра, а не бренд.
+
+    Два кадра одного размера и резкости, но разного цвета, обязаны получить
+    одинаковые признаки-подсказки — иначе она начнёт мерить не то.
+    """
+
+    from adlearn.classification.features.shortcut import ShortcutExtractor
+
+    yellow = write(tmp_path / "y.png", flat((0, 204, 255)))
+    green = write(tmp_path / "g.png", flat((86, 185, 0)))
+
+    values = ShortcutExtractor()([yellow, green])
+
+    assert values[0].tolist() == values[1].tolist()

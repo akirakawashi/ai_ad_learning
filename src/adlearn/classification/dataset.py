@@ -1,7 +1,12 @@
 """Набор кадров по брендам и деление на части.
 
-Кадры лежат папками по брендам — так же, как их отдал разметчик. Никаких
+Кадры лежат папками по классам — так же, как их отдал разметчик. Никаких
 симлинков и пересборки: набор маленький, читаем прямо из `raw`.
+
+Класс может быть разложен по подпапкам: `other/Магнит`, `other/Сбер` и так далее.
+Для обучения это по-прежнему один класс, но имя подпапки запоминается. Без него
+нельзя ответить на главный вопрос отчёта — не «сколько ошибок», а «кого именно
+модель принимает за МегаФон».
 """
 
 from __future__ import annotations
@@ -19,10 +24,16 @@ from adlearn.core.images import find_images
 class Sample:
     path: Path
     brand: str
+    source: str = ""
+    """Подпапка внутри класса: конкретный бренд или вид щита. Пусто, если класс плоский."""
 
     @property
     def id(self) -> str:
-        return f"{self.brand}/{self.path.name}"
+        return (
+            f"{self.brand}/{self.source}/{self.path.name}"
+            if self.source
+            else (f"{self.brand}/{self.path.name}")
+        )
 
 
 def collect(raw: Path) -> list[Sample]:
@@ -33,10 +44,18 @@ def collect(raw: Path) -> list[Sample]:
         directory = raw / brand
         if not directory.is_dir():
             raise FileNotFoundError(f"Нет папки бренда: {directory}")
-        samples += [Sample(path=path, brand=brand) for path in find_images(directory)]
+        for path in find_images(directory, recursive=True):
+            source = path.parent.name if path.parent != directory else ""
+            samples.append(Sample(path=path, brand=brand, source=source))
     if not samples:
         raise FileNotFoundError(f"В {raw} нет кадров.")
     return samples
+
+
+def sources(samples: list[Sample]) -> list[str]:
+    """Источник каждого кадра — для разбора ошибок по конкретным брендам."""
+
+    return [item.source or item.brand for item in samples]
 
 
 def labels(samples: list[Sample]) -> np.ndarray:

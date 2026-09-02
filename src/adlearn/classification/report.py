@@ -6,7 +6,7 @@ import logging
 
 import numpy as np
 
-from adlearn.classification.ablation import ArmResult
+from adlearn.classification.ablation import SHORTCUT_ARM, ArmResult
 from adlearn.classification.config import BRANDS
 
 logger = logging.getLogger("cls")
@@ -22,6 +22,13 @@ def print_scores(results: list[ArmResult], *, baseline: str = "визуал") ->
             sign = "+" if paired.mean() >= 0 else ""
             delta = f"{sign}{paired.mean():.3f} ± {paired.std():.3f}"
         logger.info("%-28s %.3f ± %.3f   %s", item.name, item.mean, item.spread, delta)
+    warn = next((i for i in results if i.name == SHORTCUT_ARM), None)
+    if warn is not None and warn.mean > 0.5:
+        logger.info(
+            "\nВНИМАНИЕ: одни размеры и резкость дают %.3f. Классы различаются\n"
+            "источником кадров, а не содержанием — остальные цифры завышены.",
+            warn.mean,
+        )
 
 
 def print_matrix(result: ArmResult) -> None:

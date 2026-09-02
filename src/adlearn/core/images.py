@@ -13,12 +13,17 @@ def is_image(path: Path) -> bool:
     return path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES
 
 
-def find_images(directory: Path) -> list[Path]:
-    """Кадры из папки, в устойчивом порядке."""
+def find_images(directory: Path, *, recursive: bool = False) -> list[Path]:
+    """Кадры из папки, в устойчивом порядке.
+
+    `recursive` нужен там, где класс разложен по подпапкам-источникам: сам класс
+    остаётся одним, а подпапки сохраняются как пометка, откуда кадр.
+    """
 
     if not directory.is_dir():
         raise FileNotFoundError(directory)
-    return sorted(path for path in directory.iterdir() if is_image(path))
+    found = directory.rglob("*") if recursive else directory.iterdir()
+    return sorted(path for path in found if is_image(path))
 
 
 def link(*, source: Path, destination: Path) -> None:

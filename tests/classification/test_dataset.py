@@ -17,11 +17,17 @@ def make_raw(tmp_path: Path, counts: dict[str, int]) -> Path:
 
 
 def test_labels_follow_the_fixed_brand_order(tmp_path: Path) -> None:
-    raw = make_raw(tmp_path, {"beeline": 2, "megafon": 1, "tele2": 1})
+    raw = make_raw(tmp_path, {"beeline": 2, "megafon": 1, "tele2": 1, "other": 1})
     samples = collect(raw)
 
-    assert [item.brand for item in samples] == ["beeline", "beeline", "megafon", "tele2"]
-    assert labels(samples).tolist() == [0, 0, 1, 2]
+    assert [item.brand for item in samples] == [
+        "beeline",
+        "beeline",
+        "megafon",
+        "tele2",
+        "other",
+    ]
+    assert labels(samples).tolist() == [0, 0, 1, 2, 3]
 
 
 def test_near_duplicates_land_in_one_group() -> None:
@@ -34,3 +40,27 @@ def test_near_duplicates_land_in_one_group() -> None:
 
     assert groups[0] == groups[3]
     assert len({int(groups[1]), int(groups[2]), int(groups[0])}) == 3
+
+
+def test_subfolders_stay_one_class_but_keep_their_name(tmp_path: Path) -> None:
+    """`other` разложен по брендам: класс один, но источник должен сохраниться.
+
+    Без источника нельзя ответить, кого именно модель принимает за МегаФон, —
+    а это и есть главный вопрос отчёта.
+    """
+
+    from adlearn.classification.dataset import sources
+
+    raw = make_raw(tmp_path, {"beeline": 1, "megafon": 1, "tele2": 1})
+    for name in ("Сбер", "Магнит"):
+        (raw / "other" / name).mkdir(parents=True)
+        (raw / "other" / name / "a.jpg").write_bytes(b"")
+
+    samples = collect(raw)
+    other = [item for item in samples if item.brand == "other"]
+
+    assert len(other) == 2
+    assert {item.source for item in other} == {"Сбер", "Магнит"}
+    assert labels(samples).tolist() == [0, 1, 2, 3, 3]
+    assert sorted(set(sources(samples))) == ["beeline", "megafon", "tele2", "Магнит", "Сбер"]
+    assert len({item.id for item in samples}) == len(samples)

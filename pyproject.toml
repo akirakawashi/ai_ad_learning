@@ -13,6 +13,8 @@ adlearn = "adlearn.cli:main"
 
 [dependency-groups]
 dev = [
+    "ipykernel>=6.29",
+    "matplotlib>=3.9",
     "mypy>=2.1.0",
     "pytest>=8.4.0",
     "ruff>=0.15.18",

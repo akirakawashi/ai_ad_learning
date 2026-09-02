@@ -83,6 +83,16 @@ uv run adlearn detect eval --weights models/detection/best.pt \
 
 ## Классификация
 
+```bash
+uv run adlearn cls features    # эмбеддинги и цветовые признаки, один раз
+uv run adlearn cls ablate      # сравнение арм: что даёт каждый сигнал
+uv run adlearn cls train       # обучить голову
+uv run adlearn cls predict --source ./фото
+```
+
+Разобрать ответы глазами — [notebooks/explain.ipynb](notebooks/explain.ipynb):
+кадр, карта внимания и вероятности рядом. Открывается прямо в VS Code.
+
 Задача ещё не поставлена, но каркас под неё стоит: папки в
 `adlearn.paths.CLASSIFICATION`, деление на части, ссылки и контактные листы — в
 `adlearn.core`. Новая задача добавляется своим пакетом рядом с `detection` и
