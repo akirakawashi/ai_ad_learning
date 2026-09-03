@@ -93,6 +93,29 @@ uv run adlearn cls predict --source ./фото
 Разобрать ответы глазами — [notebooks/explain.ipynb](notebooks/explain.ipynb):
 кадр, карта внимания и вероятности рядом. Открывается прямо в VS Code.
 
+### Бренд через VLM
+
+Вторая ветка классификации: зрительно-языковая модель читает надпись и узнаёт
+знак, размеченная выборка ей не нужна. Модель крутится отдельно, в `llama-server`
+из llama.cpp; веса лежат в `models/vlm/`. Порт 8080 занят CVAT, пока тот поднят.
+
+```bash
+~/llama.cpp/build/bin/llama-server -m models/vlm/Qwen3VL-8B-Instruct-Q4_K_M.gguf \
+    --mmproj models/vlm/mmproj-Qwen3VL-8B-Instruct-F16.gguf -ngl 99 -c 8192 --port 8080
+
+uv run adlearn cls probe --per-brand 20 --per-hard 3 --street 12 --random-other 6 \
+    --output data/classification/probe/r200                 # выборка с ответами, один раз
+uv run adlearn cls vlm --source data/classification/probe/r200 \
+    --labels data/classification/probe/r200/labels.csv \
+    --output data/classification/vlm_runs/r1.csv            # прогон, около 3.5 с на кадр
+uv run adlearn cls compare data/classification/vlm_runs/r0.csv \
+    data/classification/vlm_runs/r1.csv                     # что исправилось, что сломалось
+```
+
+Бренды, которые модель знает, перечислены в `TELECOM_BRANDS`; описания знаков и
+формы названий — в `classification/vlm.py`. Кадры для проверки лежат папками с
+теми же именами в `data/classification/raw/`.
+
 Задача ещё не поставлена, но каркас под неё стоит: папки в
 `adlearn.paths.CLASSIFICATION`, деление на части, ссылки и контактные листы — в
 `adlearn.core`. Новая задача добавляется своим пакетом рядом с `detection` и

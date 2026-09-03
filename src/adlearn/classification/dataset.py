@@ -36,11 +36,16 @@ class Sample:
         )
 
 
-def collect(raw: Path) -> list[Sample]:
-    """Все кадры набора в устойчивом порядке."""
+def collect(raw: Path, *, brands: tuple[str, ...] = BRANDS) -> list[Sample]:
+    """Все кадры набора в устойчивом порядке.
+
+    По умолчанию берутся классы обученной головы. VLM знает больше брендов, и для
+    её проверки список передаётся отдельно — папки с теми же именами лежат в том же
+    `raw/`.
+    """
 
     samples: list[Sample] = []
-    for brand in BRANDS:
+    for brand in brands:
         directory = raw / brand
         if not directory.is_dir():
             raise FileNotFoundError(f"Нет папки бренда: {directory}")

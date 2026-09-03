@@ -85,3 +85,40 @@ def test_large_frames_are_shrunk_before_sending(tmp_path: Path) -> None:
 
     assert decoded is not None
     assert max(decoded.shape[:2]) == MAX_SIDE
+
+
+def test_logo_basis_with_the_name_in_text_is_trusted() -> None:
+    """Новый знак МТС — это буквы: модель пишет «узнала знак», но название выписано."""
+
+    item = answer(brand="mts", basis=BASIS_LOGO, visible_text="М Т С")
+
+    assert item.verdict == VERDICT_CONFIRMED
+    assert item.decided() == "mts"
+
+
+def test_latin_lookalike_of_mts_counts() -> None:
+    item = answer(brand="mts", visible_text="MTC")
+
+    assert item.decided() == "mts"
+
+
+def test_short_forms_are_not_searched_across_spaces() -> None:
+    """«т2» нашлось бы внутри «кабинет 2», если схлопнуть пробелы."""
+
+    item = answer(brand="tele2", visible_text="кабинет 2")
+
+    assert item.verdict == VERDICT_REVIEW
+
+
+def test_plus7_is_confirmed_by_the_word_telecom_alone() -> None:
+    """Знак +7 — картинка, в тексте от него остаётся одно слово «Телеком»."""
+
+    item = answer(brand="plus7", visible_text="Телеком\nПриходи со своим номером")
+
+    assert item.decided() == "plus7"
+
+
+def test_rostelecom_and_a_phone_number_do_not_confirm_plus7() -> None:
+    for text in ("Миранда от Ростелеком", "+7 (990) 007-07-07"):
+        item = answer(brand="plus7", visible_text=text)
+        assert item.verdict == VERDICT_REVIEW, text

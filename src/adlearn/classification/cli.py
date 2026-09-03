@@ -15,12 +15,13 @@ import joblib
 import numpy as np
 
 from adlearn import paths
-from adlearn.classification import dataset, vlm
+from adlearn.classification import dataset, vlm, vlm_report
 from adlearn.classification.ablation import ARMS, SHORTCUT_ARM, build_blocks, run_arm
 from adlearn.classification.config import (
     BRANDS,
     HARD_NEGATIVES,
     STREET_SOURCE,
+    TELECOM_BRANDS,
     UNSURE,
     ClassificationConfig,
 )
@@ -48,6 +49,7 @@ def register(tasks: Subparsers) -> None:
     _add_ablate(commands)
     _add_predict(commands)
     _add_vlm(commands)
+    _add_compare(commands)
     _add_probe(commands)
     _add_blind(commands)
 
@@ -411,8 +413,33 @@ def _vlm(args: argparse.Namespace) -> int:
             100 * raw_hits / graded,
         )
         _score_brands(answers, truth, accept_logo=args.accept_logo)
+        logger.info("")
+        vlm_report.print_summary(vlm_report.read_outcomes(output), targets=TELECOM_BRANDS)
 
     logger.info("таблица: %s", output)
+    return 0
+
+
+# --- сравнение прогонов ---------------------------------------------------
+
+
+def _add_compare(commands: Subparsers) -> None:
+    parser = command(
+        commands,
+        "compare",
+        help="сравнить два прогона VLM по одной выборке: что исправилось, что сломалось",
+        handler=_compare,
+    )
+    parser.add_argument("before", type=Path, help="CSV прошлого прогона")
+    parser.add_argument("after", type=Path, help="CSV нового прогона")
+
+
+def _compare(args: argparse.Namespace) -> int:
+    vlm_report.print_comparison(
+        vlm_report.read_outcomes(args.before),
+        vlm_report.read_outcomes(args.after),
+        targets=TELECOM_BRANDS,
+    )
     return 0
 
 
@@ -445,7 +472,7 @@ def _probe(args: argparse.Namespace) -> int:
     берутся целиком, а остальное досыпается для фона.
     """
 
-    samples = dataset.collect(args.raw)
+    samples = dataset.collect(args.raw, brands=(*TELECOM_BRANDS, "other"))
     rng = random.Random(args.seed)
     by_source: dict[str, list[dataset.Sample]] = {}
     for item in samples:
@@ -469,9 +496,8 @@ def _probe(args: argparse.Namespace) -> int:
         and item.source != STREET_SOURCE
     ]
     chosen += take(rest, args.random_other)
-    for brand in BRANDS:
-        if brand != "other":
-            chosen += take(by_source.get(brand, []), args.per_brand)
+    for brand in TELECOM_BRANDS:
+        chosen += take(by_source.get(brand, []), args.per_brand)
 
     output = reset_dir(args.output)
     rows = []
