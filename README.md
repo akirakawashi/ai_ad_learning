@@ -26,6 +26,8 @@ src/adlearn/
 │   ├── dataset.py      сборка набора из трёх частей
 │   ├── checks.py       проверки набора перед обучением
 │   ├── preview.py      разметка поверх кадров
+│   ├── review.py       проверка псевдоразметки: детектор, судья-VLM, вердикты
+│   ├── negatives.py    фотографии без рекламы с пустой разметкой, удвоенные копиями
 │   ├── train.py        обучение и оценка
 │   └── cli.py          команды adlearn detect ...
 └── classification/     задача в работе, каркас готов
@@ -34,6 +36,8 @@ data/                   всё тяжёлое, в Git не попадает
 ├── raw/                исходные фотографии, общие для всех задач
 ├── detection/
 │   ├── prelabel/       результат псевдоразметки
+│   ├── review/         проверенная разметка: вердикты, листы, чистые labels/
+│   ├── negatives/      фуры без рекламы: images/ и пустые labels/
 │   ├── dataset/        собранный набор
 │   ├── export/         пачки для CVAT и выгрузки из него
 │   └── preview/        контактные листы
@@ -77,6 +81,19 @@ uv run adlearn detect eval --weights models/detection/best.pt \
     data/runs/ad_object_v2/weights/best.pt                      # сравнение
 ```
 
+Псевдоразметку перед сборкой стоит проверить, а не брать на веру:
+
+```bash
+uv run adlearn detect review --stage scan                  # детектор, рамки с уверенностью
+uv run adlearn detect review --stage judge                 # VLM отвечает, что на каждой рамке
+uv run adlearn detect review --stage sheets                # листы для глаз
+#                                                            ... вердикты в review/verdicts.csv ...
+uv run adlearn detect review --stage apply                 # чистая разметка в review/labels/
+uv run adlearn detect review --stage cvat                  # спорные кадры пачкой в CVAT
+uv run adlearn detect review --stage import --export x.zip # выгрузка из CVAT обратно
+uv run adlearn detect negatives --source ../негатив         # фуры без рекламы, по две копии
+```
+
 `uv run adlearn detect <команда> --help` покажет ключи. Подробности —
 [docs/detection.md](docs/detection.md), порядок работы в CVAT —
 [docs/cvat.md](docs/cvat.md).
@@ -115,6 +132,10 @@ uv run adlearn cls compare data/classification/vlm_runs/r0.csv \
 Бренды, которые модель знает, перечислены в `TELECOM_BRANDS`; описания знаков и
 формы названий — в `classification/vlm.py`. Кадры для проверки лежат папками с
 теми же именами в `data/classification/raw/`.
+
+Рабочая копия промпта и проверки живёт в пайплайне,
+`../ai_ad_ml/ml/pipeline/scripts/vlm.py`. Здесь подбирают, там применяют: после
+удачного круга правку переносят туда руками, и наоборот.
 
 Задача ещё не поставлена, но каркас под неё стоит: папки в
 `adlearn.paths.CLASSIFICATION`, деление на части, ссылки и контактные листы — в

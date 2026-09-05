@@ -8,11 +8,12 @@ from pathlib import Path
 
 from adlearn import paths
 from adlearn.core.cli import Subparsers, command
-from adlearn.detection import bundle, checks, dataset, prelabel, preview, train
+from adlearn.detection import bundle, checks, dataset, negatives, prelabel, preview, review, train
 from adlearn.detection.config import (
     CLASS_NAME,
     DatasetConfig,
     PrelabelConfig,
+    ReviewConfig,
     TrainConfig,
 )
 from adlearn.detection.report import STATUS_EMPTY, STATUS_OK, STATUS_WEAK, summary
@@ -34,6 +35,8 @@ def register(tasks: Subparsers) -> None:
     _add_build(commands)
     _add_check(commands)
     _add_preview(commands)
+    _add_review(commands)
+    _add_negatives(commands)
     _add_train(commands)
     _add_eval(commands)
 
@@ -323,4 +326,159 @@ def _eval(args: argparse.Namespace) -> int:
             scores["precision"],
             scores["recall"],
         )
+    return 0
+
+
+# --- проверка псевдоразметки ---------------------------------------------
+
+
+def _add_review(commands: Subparsers) -> None:
+    defaults = ReviewConfig()
+    parser = command(
+        commands,
+        "review",
+        help="проверить псевдоразметку: рамки через VLM, спорное — на листы",
+        handler=_review,
+    )
+    parser.add_argument(
+        "--stage",
+        type=str,
+        default="all",
+        choices=("scan", "judge", "sheets", "apply", "cvat", "import", "all"),
+        help="scan — прогон детектора, judge — ответы VLM, sheets — листы, apply — чистая разметка",
+    )
+    parser.add_argument("--source", type=Path, default=defaults.source)
+    parser.add_argument("--output", type=Path, default=defaults.output)
+    parser.add_argument("--weights", type=Path, default=defaults.weights)
+    parser.add_argument("--conf", type=float, default=defaults.confidence_min)
+    parser.add_argument("--imgsz", type=int, default=defaults.image_size)
+    parser.add_argument("--batch", type=int, default=defaults.batch_size)
+    parser.add_argument("--device", type=str, default=defaults.device)
+    parser.add_argument("--vlm-url", type=str, default=defaults.vlm_url)
+    parser.add_argument("--crop-side", type=int, default=defaults.crop_max_side)
+    parser.add_argument("--export", type=Path, help="выгрузка из CVAT для стадии import")
+    parser.add_argument(
+        "--empty-stride",
+        type=int,
+        default=defaults.empty_frame_stride,
+        help="каждый N-й кадр без находок становится негативом; 0 — отдать человеку",
+    )
+
+
+def _review(args: argparse.Namespace) -> int:
+    config = ReviewConfig(
+        weights=args.weights,
+        source=args.source,
+        output=args.output,
+        image_size=args.imgsz,
+        confidence_min=args.conf,
+        batch_size=args.batch,
+        device=args.device,
+        crop_max_side=args.crop_side,
+        vlm_url=args.vlm_url,
+        empty_frame_stride=args.empty_stride,
+    )
+    if args.stage in ("scan", "all"):
+        boxes = review.scan(config)
+        logger.info("рамки: %s", config.boxes_path)
+    else:
+        boxes = review.read_boxes_csv(config.boxes_path)
+
+    if args.stage in ("judge", "all"):
+        asked = review.judge(config)
+        logger.info("новых ответов %s, всё в %s", asked, config.answers_path)
+
+    if args.stage in ("sheets", "all"):
+        answers = {item.box_id: item for item in review.read_answers(config.answers_path)}
+        by_category: dict[str, list[review.Box]] = {}
+        for box in boxes:
+            answer = answers.get(box.box_id)
+            if answer is None:
+                continue
+            by_category.setdefault(answer.category, []).append(box)
+        sheets = 0
+        for category, group in sorted(by_category.items()):
+            group.sort(key=lambda box: box.confidence)
+            sheets += review.crop_sheets(boxes=group, config=config, name=category)
+        empty = review.frames_without_boxes(source=config.source, boxes=boxes)
+        sheets += review.frame_sheets(
+            files=empty, boxes_by_file={}, config=config, name="empty_frames"
+        )
+        logger.info("листов %s, всё в %s", sheets, config.sheets_dir)
+
+    if args.stage == "import":
+        if args.export is None:
+            raise SystemExit("Стадии import нужен --export с архивом из CVAT.")
+        imported, imported_boxes, imported_empty = review.import_export(config, archive=args.export)
+        logger.info(
+            "из CVAT: кадров %s, рамок %s, без рамок %s", imported, imported_boxes, imported_empty
+        )
+        logger.info("осталось в очереди: %s", len(config.cvat_list_path.read_text().split()))
+        return 0
+
+    if args.stage == "cvat":
+        images_archive, annotations_archive, count = review.pack_disputed(config)
+        logger.info(
+            "кадров %s, картинки %s (%.0f МБ), разметка %s",
+            count,
+            images_archive,
+            images_archive.stat().st_size / 1e6,
+            annotations_archive,
+        )
+        return 0
+
+    if args.stage == "apply":
+        applied = review.apply_verdicts(config)
+        logger.info(
+            "кадров: чисто %s, поправлено %s, негативов %s, в CVAT %s, без рамок %s",
+            applied.clean,
+            applied.fixed,
+            applied.negative,
+            applied.disputed,
+            applied.no_boxes,
+        )
+        logger.info("рамок было %s, стало %s", applied.boxes_before, applied.boxes_after)
+        logger.info("разметка: %s", config.labels_dir)
+        logger.info("список для CVAT: %s", config.cvat_list_path)
+        return 0
+
+    counts: dict[str, int] = {}
+    for item in review.read_answers(config.answers_path):
+        counts[item.category] = counts.get(item.category, 0) + 1
+    for category, total in sorted(counts.items(), key=lambda pair: -pair[1]):
+        logger.info("%s: %s", category, total)
+    return 0
+
+
+# --- отрицательные примеры со стороны -------------------------------------
+
+
+def _add_negatives(commands: Subparsers) -> None:
+    parser = command(
+        commands,
+        "negatives",
+        help="фотографии без рекламы: разложить с пустой разметкой и удвоить копиями",
+        handler=_negatives,
+    )
+    parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--output", type=Path, default=TASK.root / "negatives")
+    parser.add_argument("--group", type=str, default="truck")
+    parser.add_argument(
+        "--skip", type=str, nargs="*", default=(), help="имена файлов, которые не брать"
+    )
+    parser.add_argument("--seed", type=int, default=0)
+
+
+def _negatives(args: argparse.Namespace) -> int:
+    originals, augmented, skipped = negatives.prepare(
+        negatives.NegativesConfig(
+            source=args.source,
+            output=args.output,
+            group=args.group,
+            skip=tuple(args.skip),
+            seed=args.seed,
+        )
+    )
+    logger.info("оригиналов %s, копий %s, пропущено %s", originals, augmented, skipped)
+    logger.info("кадры: %s", args.output / "images")
     return 0

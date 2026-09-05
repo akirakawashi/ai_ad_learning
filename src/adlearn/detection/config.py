@@ -98,3 +98,77 @@ class TrainConfig:
     project: Path = paths.RUNS
     name: str = "ad_object_v2"
     seed: int = 0
+
+
+@dataclass(frozen=True)
+class ReviewConfig:
+    """Проверка псевдоразметки перед сборкой набора.
+
+    `weights` — та же модель, чью разметку проверяем: первая, размеченная руками
+    владельца. `confidence_min` ниже боевого 0.50, потому что проверка тем и
+    занимается, что отделяет годное от мусора, и слабые рамки ей нужны.
+
+    `crop_max_side` держит вырезку мелкой намеренно. Щит на вырезке занимает
+    почти весь кадр, и полтысячи пикселей ему хватает; крупная картинка
+    разворачивается в тысячи токенов и замедляет ответ вчетверо.
+
+    `empty_frame_stride` решает судьбу кадров, где детектор не нашёл ничего.
+    Ноль означает «отдать человеку»: на стоковых фото такие кадры почти всегда
+    прячут пропущенный щит. На записи с регистратора наоборот, пустой кадр
+    честно пуст, и каждый `stride`-й из них становится негативом. Не все подряд,
+    потому что таких кадров больше, чем кадров со щитами, а негативов в наборе
+    должно быть около десятой части.
+    """
+
+    weights: Path = TASK.weights
+    source: Path = paths.RAW
+    output: Path = TASK.root / "review"
+    image_size: int = 960
+    confidence_min: float = 0.25
+    iou: float = 0.50
+    batch_size: int = 16
+    device: str | None = "0"
+    crop_margin: float = 0.06
+    crop_max_side: int = 640
+    vlm_url: str = "http://127.0.0.1:8080"
+    vlm_timeout_sec: float = 120.0
+    vlm_max_tokens: int = 120
+    sheet_columns: int = 8
+    sheet_rows: int = 6
+    sheet_tile: int = 210
+    frame_columns: int = 4
+    frame_rows: int = 3
+    frame_side: int = 420
+    empty_frame_stride: int = 0
+
+    @property
+    def crops_dir(self) -> Path:
+        return self.output / "crops"
+
+    @property
+    def sheets_dir(self) -> Path:
+        return self.output / "sheets"
+
+    @property
+    def boxes_path(self) -> Path:
+        return self.output / "boxes.csv"
+
+    @property
+    def answers_path(self) -> Path:
+        return self.output / "answers.csv"
+
+    @property
+    def frames_path(self) -> Path:
+        return self.output / "frames.csv"
+
+    @property
+    def verdicts_path(self) -> Path:
+        return self.output / "verdicts.csv"
+
+    @property
+    def labels_dir(self) -> Path:
+        return self.output / "labels"
+
+    @property
+    def cvat_list_path(self) -> Path:
+        return self.output / "for_cvat.txt"
