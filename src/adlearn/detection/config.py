@@ -172,3 +172,33 @@ class ReviewConfig:
     @property
     def cvat_list_path(self) -> Path:
         return self.output / "for_cvat.txt"
+
+
+ARCHIVE = Path("/home/shiawase/ic8_ai/other/ml_archive/data/detection/yolo")
+"""Ручная разметка владельца, на которой обучалась первая модель."""
+
+DASHCAM_NEGATIVE_STRIDE = 5
+"""Какую долю пустых кадров с регистратора брать негативами.
+
+Кадров, где детектор не нашёл ничего, на записи больше, чем кадров со щитами.
+Взять их все значит перекосить набор: негативов станет пятая часть, и модель
+начнёт молчать там, где щит есть. Каждый пятый даёт около 15% негативов, а
+кадры, где детектор реально ошибался, входят все до одного.
+"""
+
+
+@dataclass(frozen=True)
+class BuildConfig:
+    """Состав набора v3: четыре источника и отложенная съёмка.
+
+    Фотографии фур приходят без разметки: рекламы на них нет вовсе, и файл
+    разметки создаётся пустым. Записи `VideoProject` в делении не участвуют,
+    они лежат отдельной частью и служат честной проверкой.
+    """
+
+    output: Path = TASK.dataset
+    class_name: str = CLASS_NAME
+    validation_share: float = 0.15
+    test_share: float = 0.15
+    seed: int = 0
+    negative_stride: int = DASHCAM_NEGATIVE_STRIDE

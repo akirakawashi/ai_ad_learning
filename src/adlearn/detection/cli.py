@@ -10,7 +10,9 @@ from adlearn import paths
 from adlearn.core.cli import Subparsers, command
 from adlearn.detection import bundle, checks, dataset, negatives, prelabel, preview, review, train
 from adlearn.detection.config import (
+    ARCHIVE,
     CLASS_NAME,
+    BuildConfig,
     DatasetConfig,
     PrelabelConfig,
     ReviewConfig,
@@ -33,6 +35,7 @@ def register(tasks: Subparsers) -> None:
     _add_prelabel(commands)
     _add_bundle(commands)
     _add_build(commands)
+    _add_build3(commands)
     _add_check(commands)
     _add_preview(commands)
     _add_review(commands)
@@ -304,8 +307,9 @@ def _add_eval(commands: Subparsers) -> None:
     parser.add_argument(
         "--split",
         type=str,
-        default=dataset.HANDMADE_SPLIT,
-        choices=("test", dataset.HANDMADE_SPLIT, "val"),
+        default=dataset.HOLDOUT_SPLIT,
+        choices=("test", dataset.HOLDOUT_SPLIT, "val"),
+        help="test_dashcam — съёмка, которой модель не видела; test — та же съёмка, что в обучении",
     )
 
 
@@ -481,4 +485,77 @@ def _negatives(args: argparse.Namespace) -> int:
     )
     logger.info("оригиналов %s, копий %s, пропущено %s", originals, augmented, skipped)
     logger.info("кадры: %s", args.output / "images")
+    return 0
+
+
+# --- сборка набора из нескольких источников -------------------------------
+
+
+def _dashcam_samples() -> tuple[Path, Path]:
+    """Папки регистратора: кадры и проверенная разметка."""
+
+    return paths.DATA / "dashcam", TASK.root / "review_dashcam" / "labels"
+
+
+def _add_build3(commands: Subparsers) -> None:
+    defaults = BuildConfig()
+    parser = command(
+        commands,
+        "build3",
+        help="собрать набор из архива, стока, регистратора и негативов",
+        handler=_build3,
+    )
+    parser.add_argument("--output", type=Path, default=defaults.output)
+    parser.add_argument("--archive", type=Path, default=ARCHIVE)
+    parser.add_argument("--val-share", type=float, default=defaults.validation_share)
+    parser.add_argument("--test-share", type=float, default=defaults.test_share)
+    parser.add_argument("--seed", type=int, default=defaults.seed)
+    parser.add_argument("--negative-stride", type=int, default=defaults.negative_stride)
+
+
+def _build3(args: argparse.Namespace) -> int:
+    stock = TASK.root / "review"
+    dashcam_images, dashcam_labels = _dashcam_samples()
+    thinned = dataset.thin_negatives(
+        labels=dashcam_labels,
+        stride=args.negative_stride,
+        keep_prefix="dashno",
+        destination=TASK.root / "review_dashcam" / "labels_thinned",
+    )
+    sources = [
+        dataset.Source(name="архив", images=args.archive, labels=args.archive, handmade=True),
+        dataset.Source(name="сток", images=paths.RAW, labels=stock / "labels"),
+        dataset.Source(name="регистратор", images=dashcam_images, labels=thinned),
+        dataset.Source(name="фуры", images=paths.DATA / "negatives"),
+    ]
+    holdout_labels = dataset.split_holdout(
+        labels=dashcam_labels,
+        prefix="dashvp",
+        destination=TASK.root / "review_dashcam" / "labels_holdout",
+    )
+    holdout = dataset.Source(name="VideoProject", images=dashcam_images, labels=holdout_labels)
+    counts = dataset.build_multi(
+        sources=sources,
+        holdout=holdout,
+        output=args.output,
+        validation_share=args.val_share,
+        test_share=args.test_share,
+        seed=args.seed,
+    )
+    for name, total in counts.by_source.items():
+        logger.info("источник %s: %s кадров", name, total)
+    for title, part in (
+        ("обучение", counts.train),
+        ("проверка", counts.validation),
+        ("тест", counts.test),
+        ("отложенная съёмка", counts.holdout),
+    ):
+        logger.info(
+            "%s: %s кадров, из них без рамок %s (%.1f%%)",
+            title,
+            part.frames,
+            part.empty,
+            part.empty_share * 100,
+        )
+    logger.info("описание набора: %s", args.output / "data.yaml")
     return 0

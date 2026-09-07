@@ -34,6 +34,8 @@ src/adlearn/
 
 data/                   всё тяжёлое, в Git не попадает
 ├── raw/                исходные фотографии, общие для всех задач
+├── dashcam/            кадры с регистратора, нарезка раз в две секунды
+├── negatives/          съёмка без рекламы: фуры, автобусы, цистерны
 ├── detection/
 │   ├── prelabel/       результат псевдоразметки
 │   ├── review/         проверенная разметка: вердикты, листы, чистые labels/
@@ -71,7 +73,7 @@ cp ../ai_ad_ml/models/detection/best.pt models/detection/best.pt
 uv run adlearn detect prelabel                       # разметить фотографии моделью
 uv run adlearn detect bundle                         # собрать спорные кадры для CVAT
 #                                                      ... ручная правка в CVAT ...
-uv run adlearn detect build --export выгрузка.zip    # собрать набор
+uv run adlearn detect build3                         # собрать набор из всех источников
 uv run adlearn detect check                          # проверить набор
 uv run adlearn detect preview --split train          # посмотреть глазами
 
