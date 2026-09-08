@@ -160,6 +160,7 @@ def test_own_server_gets_neither_model_name_nor_key(tmp_path: Path, monkeypatch)
 
     assert "model" not in sent["json"]  # type: ignore[operator]
     assert sent["headers"] == {}
+    assert sent["json"]["chat_template_kwargs"] == {"enable_thinking": False}  # type: ignore[index]
 
 
 def test_shared_server_gets_model_name_and_key(tmp_path: Path, monkeypatch) -> None:

@@ -266,12 +266,19 @@ def ask(
     url: str = DEFAULT_URL,
     model: str = DEFAULT_MODEL,
     api_key: str = DEFAULT_API_KEY,
+    thinking: bool = False,
     prompt: str = PROMPT,
     temperature: float = 0.0,
     timeout: float = 180.0,
     max_tokens: int = MAX_ANSWER_TOKENS,
 ) -> VlmAnswer:
-    """Один кадр — один ответ по схеме."""
+    """Один кадр — один ответ по схеме.
+
+    `thinking` гасит рассуждения: с ними модель тратит на кадр лишние секунды и
+    норовит написать ход мысли перед JSON. Флаг уходит на сервер всегда, даже там,
+    где рассуждения и так выключены настройками: подбор промпта должен мерить ровно
+    тот запрос, который шлёт пайплайн, а чужие настройки могут поменяться без нас.
+    """
 
     body: dict[str, Any] = {
         "messages": [
@@ -292,6 +299,8 @@ def ask(
     }
     if model:
         body["model"] = model
+    if not thinking:
+        body["chat_template_kwargs"] = {"enable_thinking": False}
     try:
         response = requests.post(
             f"{url.rstrip('/')}/v1/chat/completions",
