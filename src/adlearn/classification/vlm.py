@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -30,6 +31,17 @@ import numpy as np
 import requests
 
 from adlearn.classification.config import TELECOM_BRANDS, VLM_UNCLEAR
+
+DEFAULT_URL = os.environ.get("PIPELINE_VLM_URL", "http://127.0.0.1:8080")
+DEFAULT_MODEL = os.environ.get("PIPELINE_VLM_MODEL", "")
+DEFAULT_API_KEY = os.environ.get("PIPELINE_VLM_API_KEY", "")
+"""Куда ходить за ответом: дефолт описывает локальную разработку, прод задаётся окружением.
+
+Без переменных это свой `llama-server` на 8080 — он отдаёт единственную загруженную
+модель, на имя не смотрит и никого не спрашивает о ключе. Общий сервер требует и
+имени, и ключа, поэтому оба поля берутся из тех же `PIPELINE_VLM_*`, что читает
+воркер пайплайна: один сервер — одна пара значений на обе ветки.
+"""
 
 ANSWERS = (*TELECOM_BRANDS, "other", VLM_UNCLEAR)
 
@@ -251,7 +263,9 @@ MAX_ANSWER_TOKENS = 400
 def ask(
     path: Path,
     *,
-    url: str,
+    url: str = DEFAULT_URL,
+    model: str = DEFAULT_MODEL,
+    api_key: str = DEFAULT_API_KEY,
     prompt: str = PROMPT,
     temperature: float = 0.0,
     timeout: float = 180.0,
@@ -276,9 +290,14 @@ def ask(
             "json_schema": {"name": "brand", "schema": SCHEMA, "strict": True},
         },
     }
+    if model:
+        body["model"] = model
     try:
         response = requests.post(
-            f"{url.rstrip('/')}/v1/chat/completions", json=body, timeout=timeout
+            f"{url.rstrip('/')}/v1/chat/completions",
+            json=body,
+            timeout=timeout,
+            headers={"Authorization": f"Bearer {api_key}"} if api_key else {},
         )
         response.raise_for_status()
         parsed = json.loads(response.json()["choices"][0]["message"]["content"])
@@ -300,12 +319,21 @@ def ask(
     )
 
 
-def ask_many(paths: Sequence[Path], *, url: str, **kwargs: object) -> list[VlmAnswer]:
+def ask_many(paths: Sequence[Path], *, url: str = DEFAULT_URL, **kwargs: object) -> list[VlmAnswer]:
     return [ask(path, url=url, **kwargs) for path in paths]  # type: ignore[arg-type]
 
 
-def health(url: str, *, timeout: float = 5.0) -> bool:
+def health(url: str = DEFAULT_URL, *, api_key: str = DEFAULT_API_KEY, timeout: float = 5.0) -> bool:
+    """Отвечает ли модель и пускают ли нас к ней.
+
+    У чужого сервера `/health` открыт всем, а список моделей закрыт ключом. Проверять
+    только первое опасно: с неверным ключом прогон стартует, а потом каждый кадр
+    получает 401 и уходит в сбой. Поэтому там, где ключ задан, спрашиваем модели.
+    """
+
+    probe = "/v1/models" if api_key else "/health"
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     try:
-        return requests.get(f"{url.rstrip('/')}/health", timeout=timeout).ok
+        return requests.get(f"{url.rstrip('/')}{probe}", timeout=timeout, headers=headers).ok
     except requests.RequestException:
         return False

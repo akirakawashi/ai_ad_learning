@@ -291,7 +291,14 @@ def _add_vlm(commands: Subparsers) -> None:
         handler=_vlm,
     )
     parser.add_argument("--source", required=True, type=Path, help="папка с кадрами")
-    parser.add_argument("--url", type=str, default="http://127.0.0.1:8080")
+    parser.add_argument("--url", type=str, default=vlm.DEFAULT_URL)
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=vlm.DEFAULT_MODEL,
+        help="имя модели: нужно общему серверу, свой llama-server его не смотрит",
+    )
+    parser.add_argument("--api-key", type=str, default=vlm.DEFAULT_API_KEY, help="ключ сервера")
     parser.add_argument("--output", type=Path, default=None, help="куда положить CSV")
     parser.add_argument(
         "--labels",
@@ -313,14 +320,14 @@ def _read_labels(path: Path) -> dict[str, str]:
 
 
 def _vlm(args: argparse.Namespace) -> int:
-    if not vlm.health(args.url):
-        raise ConnectionError(f"llama-server не отвечает на {args.url}. Запусти его и повтори.")
+    if not vlm.health(args.url, api_key=args.api_key):
+        raise ConnectionError(f"Модель не отвечает на {args.url}. Запусти сервер и повтори.")
 
     paths = find_images(args.source, recursive=True)
     if args.limit:
         paths = paths[: args.limit]
     truth = _read_labels(args.labels) if args.labels else {}
-    logger.info("кадров %s, модель на %s", len(paths), args.url)
+    logger.info("кадров %s, модель %s на %s", len(paths), args.model or "своя", args.url)
 
     output = args.output or args.source / "vlm_predictions.csv"
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -346,7 +353,7 @@ def _vlm(args: argparse.Namespace) -> int:
         ]
     )
     for index, path in enumerate(paths, start=1):
-        answer = vlm.ask(path, url=args.url)
+        answer = vlm.ask(path, url=args.url, model=args.model, api_key=args.api_key)
         answers.append(answer)
         failed += bool(answer.error)
 

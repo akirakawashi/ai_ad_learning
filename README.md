@@ -131,6 +131,13 @@ uv run adlearn cls compare data/classification/vlm_runs/r0.csv \
     data/classification/vlm_runs/r1.csv                     # что исправилось, что сломалось
 ```
 
+Дефолты описывают локальную работу — свой `llama-server` на 8080 без имени модели и
+ключа. Общий сервер задаётся окружением: `PIPELINE_VLM_URL`, `PIPELINE_VLM_MODEL`,
+`PIPELINE_VLM_API_KEY`, те же переменные, что читает воркер пайплайна. Разово их
+можно перебить флагами `--url`, `--model`, `--api-key`. Когда ключ задан, живость
+проверяется через `/v1/models`, а не `/health`: иначе неверный ключ виден только
+после того, как все кадры уйдут в сбой.
+
 Бренды, которые модель знает, перечислены в `TELECOM_BRANDS`; описания знаков и
 формы названий — в `classification/vlm.py`. Кадры для проверки лежат папками с
 теми же именами в `data/classification/raw/`.

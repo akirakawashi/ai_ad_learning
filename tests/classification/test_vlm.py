@@ -5,6 +5,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from adlearn.classification import vlm
 from adlearn.classification.vlm import (
     BASIS_COLORS,
     BASIS_LOGO,
@@ -122,3 +123,75 @@ def test_rostelecom_and_a_phone_number_do_not_confirm_plus7() -> None:
     for text in ("Миранда от Ростелеком", "+7 (990) 007-07-07"):
         item = answer(brand="plus7", visible_text=text)
         assert item.verdict == VERDICT_REVIEW, text
+
+
+ANSWER_JSON = '{"brand":"tele2","basis":"name_read","evidence":"","visible_text":"t2"}'
+
+
+class _Response:
+    ok = True
+
+    @staticmethod
+    def raise_for_status() -> None:
+        return None
+
+    @staticmethod
+    def json() -> dict[str, object]:
+        return {"choices": [{"message": {"content": ANSWER_JSON}}]}
+
+
+def _frame(tmp_path: Path) -> Path:
+    path = tmp_path / "crop.jpg"
+    cv2.imwrite(str(path), np.full((64, 64, 3), 200, dtype=np.uint8))
+    return path
+
+
+def test_own_server_gets_neither_model_name_nor_key(tmp_path: Path, monkeypatch) -> None:
+    """llama-server отдаёт единственную загруженную модель и ключа не спрашивает."""
+
+    sent: dict[str, object] = {}
+
+    def post(url: str, **kwargs: object) -> _Response:
+        sent.update(kwargs, url=url)
+        return _Response()
+
+    monkeypatch.setattr(vlm.requests, "post", post)
+    vlm.ask(_frame(tmp_path), url="http://127.0.0.1:8080", model="", api_key="")
+
+    assert "model" not in sent["json"]  # type: ignore[operator]
+    assert sent["headers"] == {}
+
+
+def test_shared_server_gets_model_name_and_key(tmp_path: Path, monkeypatch) -> None:
+    """vLLM считает имя модели обязательным и закрыт ключом на прокси."""
+
+    sent: dict[str, object] = {}
+
+    def post(url: str, **kwargs: object) -> _Response:
+        sent.update(kwargs, url=url)
+        return _Response()
+
+    monkeypatch.setattr(vlm.requests, "post", post)
+    vlm.ask(_frame(tmp_path), url="http://10.0.0.1:8000", model="qwen", api_key="secret")
+
+    assert sent["json"]["model"] == "qwen"  # type: ignore[index]
+    assert sent["headers"] == {"Authorization": "Bearer secret"}
+
+
+def test_health_probes_models_when_a_key_is_set(monkeypatch) -> None:
+    """С ключом мало знать, что сервер жив: неверный ключ виден только на /v1/models.
+
+    Иначе прогон стартует, а потом каждый кадр получает 401 и уходит в сбой.
+    """
+
+    seen: list[str] = []
+
+    def get(url: str, **_: object) -> _Response:
+        seen.append(url)
+        return _Response()
+
+    monkeypatch.setattr(vlm.requests, "get", get)
+
+    assert vlm.health("http://srv:8000", api_key="secret")
+    assert vlm.health("http://127.0.0.1:8080", api_key="")
+    assert seen == ["http://srv:8000/v1/models", "http://127.0.0.1:8080/health"]
