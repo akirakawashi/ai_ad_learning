@@ -72,6 +72,39 @@ class DatasetConfig:
     seed: int = 0
 
 
+HANDMADE = TASK.root / "manual"
+"""Распакованные выгрузки CVAT: кадры и разметка, размеченные руками."""
+
+SCENE_GAP_SEC = 3.0
+"""Какой разрыв во времени разводит кадры видео по разным сценам.
+
+Внутри трёх секунд машина проезжает несколько десятков метров: щит на кадрах
+остаётся тем же самым, только чуть крупнее. Такие кадры делятся неразрывно.
+"""
+
+
+@dataclass(frozen=True)
+class HandmadeConfig:
+    """Набор целиком из ручной разметки, без псевдоразметки.
+
+    Псевдоразметки здесь нет намеренно: набор собирается с нуля, и метрика на
+    разметке прошлой модели показывала бы согласие с ней, а не правоту.
+
+    `negatives` — фото без рекламы с пустой разметкой и копиями из
+    `detect negatives`. `None` собирает набор без них.
+    """
+
+    images: Path = HANDMADE / "images"
+    labels: Path = HANDMADE / "labels"
+    negatives: Path | None = TASK.root / "negatives"
+    output: Path = TASK.dataset
+    class_name: str = CLASS_NAME
+    validation_share: float = 0.15
+    test_share: float = 0.15
+    scene_gap_sec: float = SCENE_GAP_SEC
+    seed: int = 0
+
+
 @dataclass(frozen=True)
 class TrainConfig:
     """Настройки обучения.

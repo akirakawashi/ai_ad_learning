@@ -8,12 +8,23 @@ from pathlib import Path
 
 from adlearn import paths
 from adlearn.core.cli import Subparsers, command
-from adlearn.detection import bundle, checks, dataset, negatives, prelabel, preview, review, train
+from adlearn.detection import (
+    bundle,
+    checks,
+    dataset,
+    handmade,
+    negatives,
+    prelabel,
+    preview,
+    review,
+    train,
+)
 from adlearn.detection.config import (
     ARCHIVE,
     CLASS_NAME,
     BuildConfig,
     DatasetConfig,
+    HandmadeConfig,
     PrelabelConfig,
     ReviewConfig,
     TrainConfig,
@@ -36,6 +47,7 @@ def register(tasks: Subparsers) -> None:
     _add_bundle(commands)
     _add_build(commands)
     _add_build3(commands)
+    _add_handmade(commands)
     _add_check(commands)
     _add_preview(commands)
     _add_review(commands)
@@ -175,6 +187,59 @@ def _build(args: argparse.Namespace) -> int:
             part.empty,
             part.empty_share * 100,
         )
+    logger.info("описание набора: %s", args.output / "data.yaml")
+    return 0
+
+
+# --- набор из одной ручной разметки ---------------------------------------
+
+
+def _add_handmade(commands: Subparsers) -> None:
+    defaults = HandmadeConfig()
+    parser = command(
+        commands,
+        "handmade",
+        help="собрать набор из распакованных выгрузок CVAT",
+        handler=_handmade,
+    )
+    parser.add_argument("--images", type=Path, default=defaults.images)
+    parser.add_argument("--labels", type=Path, default=defaults.labels)
+    parser.add_argument("--output", type=Path, default=defaults.output)
+    parser.add_argument("--class-name", type=str, default=defaults.class_name)
+    parser.add_argument("--val-share", type=float, default=defaults.validation_share)
+    parser.add_argument("--test-share", type=float, default=defaults.test_share)
+    parser.add_argument("--scene-gap", type=float, default=defaults.scene_gap_sec)
+    parser.add_argument("--seed", type=int, default=defaults.seed)
+
+
+def _handmade(args: argparse.Namespace) -> int:
+    counts = handmade.build(
+        HandmadeConfig(
+            images=args.images,
+            labels=args.labels,
+            output=args.output,
+            class_name=args.class_name,
+            validation_share=args.val_share,
+            test_share=args.test_share,
+            scene_gap_sec=args.scene_gap,
+            seed=args.seed,
+        )
+    )
+    for title, part in (
+        ("обучение", counts.train),
+        ("проверка", counts.validation),
+        ("тест", counts.test),
+    ):
+        logger.info(
+            "%s: %s кадров, из них без рамок %s (%.1f%%)",
+            title,
+            part.frames,
+            part.empty,
+            part.empty_share * 100,
+        )
+    logger.info("единиц деления (сцен и снимков) %s", counts.scenes)
+    for key, (train_count, val_count, test_count) in counts.by_stratum.items():
+        logger.info("  %-22s %5s / %4s / %4s", key, train_count, val_count, test_count)
     logger.info("описание набора: %s", args.output / "data.yaml")
     return 0
 
