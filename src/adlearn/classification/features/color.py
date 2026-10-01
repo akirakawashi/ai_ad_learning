@@ -337,8 +337,7 @@ class ColorExtractor:
     version = "1"
 
     def __init__(self) -> None:
-        """Подготавливает цветовые якоря и имена измерений.
-        """
+        """Подготавливает цветовые якоря и имена измерений."""
 
         self._anchors = anchors_lab()
         self._dims = feature_names()
