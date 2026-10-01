@@ -38,6 +38,12 @@ TASK = paths.CLASSIFICATION
 
 
 def register(tasks: Subparsers) -> None:
+    """Регистрирует группу команд классификации.
+
+    Args:
+        tasks: Набор задач корневого парсера.
+    """
+
     parser = tasks.add_parser(
         "cls",
         help="классификация брендов",
@@ -57,6 +63,16 @@ def register(tasks: Subparsers) -> None:
 def _load_features(
     args: argparse.Namespace, samples: list[dataset.Sample]
 ) -> tuple[dict[str, np.ndarray], dict[str, list[str]]]:
+    """Загружает из кэша или рассчитывает все блоки признаков.
+
+    Args:
+        args: Аргументы с каталогом кэша, устройством и размером пачки.
+        samples: Кадры набора.
+
+    Returns:
+        Матрицы признаков и имена их измерений по блокам.
+    """
+
     paths = [item.path for item in samples]
     ids = [item.id for item in samples]
     features: dict[str, np.ndarray] = {}
@@ -84,6 +100,12 @@ def _load_features(
 
 
 def _add_features(commands: Subparsers) -> None:
+    """Добавляет аргументы команды расчёта признаков.
+
+    Args:
+        commands: Набор команд классификации.
+    """
+
     parser = command(
         commands,
         "features",
@@ -98,6 +120,15 @@ def _add_features(commands: Subparsers) -> None:
 
 
 def _features(args: argparse.Namespace) -> int:
+    """Рассчитывает и кэширует признаки всего набора.
+
+    Args:
+        args: Аргументы команды `features`.
+
+    Returns:
+        Код успешного завершения.
+    """
+
     samples = dataset.collect(args.raw)
     logger.info("кадров %s", len(samples))
     for brand in BRANDS:
@@ -111,6 +142,12 @@ def _features(args: argparse.Namespace) -> int:
 
 
 def _add_train(commands: Subparsers) -> None:
+    """Добавляет аргументы команды обучения головы.
+
+    Args:
+        commands: Набор команд классификации.
+    """
+
     parser = command(
         commands,
         "train",
@@ -128,6 +165,15 @@ def _add_train(commands: Subparsers) -> None:
 
 
 def _train(args: argparse.Namespace) -> int:
+    """Обучает голову на всём наборе и сохраняет модель.
+
+    Args:
+        args: Аргументы команды `train`.
+
+    Returns:
+        Код успешного завершения.
+    """
+
     samples = dataset.collect(args.raw)
     features, dims = _load_features(args, samples)
     y = dataset.labels(samples)
@@ -159,6 +205,12 @@ def _train(args: argparse.Namespace) -> int:
 
 
 def _add_ablate(commands: Subparsers) -> None:
+    """Добавляет аргументы команды абляции.
+
+    Args:
+        commands: Набор команд классификации.
+    """
+
     parser = command(
         commands,
         "ablate",
@@ -178,6 +230,15 @@ def _add_ablate(commands: Subparsers) -> None:
 
 
 def _ablate(args: argparse.Namespace) -> int:
+    """Сравнивает полезные и диагностические армы признаков.
+
+    Args:
+        args: Аргументы команды `ablate`.
+
+    Returns:
+        Код успешного завершения.
+    """
+
     samples = dataset.collect(args.raw)
     features, dims = _load_features(args, samples)
     y = dataset.labels(samples)
@@ -224,6 +285,12 @@ def _ablate(args: argparse.Namespace) -> int:
 
 
 def _add_predict(commands: Subparsers) -> None:
+    """Добавляет аргументы команды пакетного предсказания.
+
+    Args:
+        commands: Набор команд классификации.
+    """
+
     parser = command(
         commands,
         "predict",
@@ -239,6 +306,15 @@ def _add_predict(commands: Subparsers) -> None:
 
 
 def _predict(args: argparse.Namespace) -> int:
+    """Определяет бренд на кадрах и записывает вероятности в CSV.
+
+    Args:
+        args: Аргументы команды `predict`.
+
+    Returns:
+        Код успешного завершения.
+    """
+
     if not args.model.exists():
         raise FileNotFoundError(f"Нет модели {args.model}. Сначала: adlearn cls train")
     bundle = joblib.load(args.model)
@@ -284,6 +360,12 @@ def _predict(args: argparse.Namespace) -> int:
 
 
 def _add_vlm(commands: Subparsers) -> None:
+    """Добавляет аргументы команды классификации через VLM.
+
+    Args:
+        commands: Набор команд классификации.
+    """
+
     parser = command(
         commands,
         "vlm",
@@ -315,11 +397,29 @@ def _add_vlm(commands: Subparsers) -> None:
 
 
 def _read_labels(path: Path) -> dict[str, str]:
+    """Читает правильные ответы по именам файлов.
+
+    Args:
+        path: CSV с колонками `file` и `brand`.
+
+    Returns:
+        Словарь «имя файла → бренд».
+    """
+
     with path.open(encoding="utf-8") as handle:
         return {row["file"]: row["brand"] for row in csv.DictReader(handle)}
 
 
 def _vlm(args: argparse.Namespace) -> int:
+    """Запускает VLM по выборке, пишет CSV и печатает метрики.
+
+    Args:
+        args: Аргументы команды `vlm`.
+
+    Returns:
+        Код успешного завершения.
+    """
+
     if not vlm.health(args.url, api_key=args.api_key):
         raise ConnectionError(f"Модель не отвечает на {args.url}. Запусти сервер и повтори.")
 
@@ -431,6 +531,12 @@ def _vlm(args: argparse.Namespace) -> int:
 
 
 def _add_compare(commands: Subparsers) -> None:
+    """Добавляет аргументы команды сравнения прогонов VLM.
+
+    Args:
+        commands: Набор команд классификации.
+    """
+
     parser = command(
         commands,
         "compare",
@@ -442,6 +548,15 @@ def _add_compare(commands: Subparsers) -> None:
 
 
 def _compare(args: argparse.Namespace) -> int:
+    """Сравнивает два CSV-прогона VLM.
+
+    Args:
+        args: Аргументы команды `compare`.
+
+    Returns:
+        Код успешного завершения.
+    """
+
     vlm_report.print_comparison(
         vlm_report.read_outcomes(args.before),
         vlm_report.read_outcomes(args.after),
@@ -454,6 +569,12 @@ def _compare(args: argparse.Namespace) -> int:
 
 
 def _add_probe(commands: Subparsers) -> None:
+    """Добавляет аргументы команды сборки проверочной выборки.
+
+    Args:
+        commands: Набор команд классификации.
+    """
+
     parser = command(
         commands,
         "probe",
@@ -477,6 +598,12 @@ def _probe(args: argparse.Namespace) -> int:
     Случайная выборка из `other` почти не содержит двойников — Сбер и Магнит в ней
     единицы, и ошибка на них потеряется среди лёгких кадров. Поэтому двойники
     берутся целиком, а остальное досыпается для фона.
+
+    Args:
+        args: Аргументы команды `probe`.
+
+    Returns:
+        Код успешного завершения.
     """
 
     samples = dataset.collect(args.raw, brands=(*TELECOM_BRANDS, "other"))
@@ -486,6 +613,16 @@ def _probe(args: argparse.Namespace) -> int:
         by_source.setdefault(item.source or item.brand, []).append(item)
 
     def take(pool: list[dataset.Sample], count: int) -> list[dataset.Sample]:
+        """Берёт случайную часть группы без превышения её размера.
+
+        Args:
+            pool: Кадры одной группы.
+            count: Желаемое число кадров.
+
+        Returns:
+            Случайно выбранные кадры.
+        """
+
         return rng.sample(pool, min(count, len(pool)))
 
     chosen: list[dataset.Sample] = []
@@ -537,6 +674,12 @@ def _probe(args: argparse.Namespace) -> int:
 
 
 def _add_blind(commands: Subparsers) -> None:
+    """Добавляет аргументы команды обезличивания выборки.
+
+    Args:
+        commands: Набор команд классификации.
+    """
+
     parser = command(
         commands,
         "blind",
@@ -557,6 +700,12 @@ def _blind(args: argparse.Namespace) -> int:
     где имя файла может уехать вместе с картинкой.
 
     Порядок перемешивается, чтобы номер не выдавал исходную сортировку по классам.
+
+    Args:
+        args: Аргументы команды `blind`.
+
+    Returns:
+        Код успешного завершения.
     """
 
     paths = find_images(args.source, recursive=True)
@@ -608,6 +757,11 @@ def _score_brands(
 
     Для мониторинга наружки важнее точность: выдуманная кампания в отчёте дороже
     пропущенной. Поэтому цифры печатаются отдельно, а не одной общей долей верных.
+
+    Args:
+        answers: Ответы VLM по кадрам.
+        truth: Правильные бренды по имени файла или основе имени.
+        accept_logo: Принимать ли ответ по одному логотипу.
     """
 
     targets = set(vlm.NAME_FORMS)

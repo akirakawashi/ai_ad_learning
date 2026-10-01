@@ -51,18 +51,45 @@ class ArmResult:
 
     @property
     def mean(self) -> float:
+        """Возвращает средний macro F1 по всем фолдам и повторам.
+
+        Returns:
+            Среднее значение macro F1.
+        """
+
         return float(np.mean(self.macro_f1))
 
     @property
     def spread(self) -> float:
+        """Возвращает разброс macro F1 между фолдами и повторами.
+
+        Returns:
+            Стандартное отклонение macro F1.
+        """
+
         return float(np.std(self.macro_f1))
 
     @property
     def matrix(self) -> np.ndarray:
+        """Строит матрицу ошибок по предсказаниям первой итерации.
+
+        Returns:
+            Матрица ошибок со строками истинных классов и столбцами ответов.
+        """
+
         return confusion_matrix(self.truth, self.predictions, labels=range(len(BRANDS)))
 
 
 def generic_columns(dims: list[str]) -> list[int]:
+    """Находит общие цветовые признаки, которые не используют палитры брендов.
+
+    Args:
+        dims: Имена измерений цветового блока.
+
+    Returns:
+        Индексы общих цветовых признаков.
+    """
+
     return [i for i, name in enumerate(dims) if name.startswith(GENERIC_PREFIXES)]
 
 
@@ -83,6 +110,20 @@ def run_arm(
     Групповой фолд обязателен: почти-дубликаты из интернета иначе разъедутся
     между обучением и тестом, и завышены окажутся все армы сразу — сравнивать
     станет нечего.
+
+    Args:
+        name: Название армы для отчёта.
+        blocks: Блоки признаков выбранной армы.
+        y: Индексы правильных классов.
+        groups: Группы почти одинаковых кадров.
+        folds: Число фолдов групповой кросс-валидации.
+        repeats: Число повторов разбиения.
+        color_weight: Вес нормированного цветового блока.
+        regularization: Параметр `C` логистической регрессии.
+        seed: Начальное значение генератора разбиений.
+
+    Returns:
+        Метрики армы и ответы первой итерации.
     """
 
     scores: list[float] = []
@@ -109,6 +150,18 @@ def build_blocks(
     *,
     generic_only: bool = False,
 ) -> dict[str, np.ndarray]:
+    """Отбирает блоки признаков для одной армы.
+
+    Args:
+        features: Все рассчитанные матрицы признаков.
+        dims: Имена измерений каждого блока.
+        arm: Имена блоков, входящих в арму.
+        generic_only: Оставить ли в цветовом блоке только общие признаки.
+
+    Returns:
+        Выбранные матрицы признаков по именам блоков.
+    """
+
     blocks: dict[str, np.ndarray] = {}
     for name in arm:
         values = features[name]

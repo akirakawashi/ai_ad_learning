@@ -36,11 +36,24 @@ class BrandScore:
 
     @property
     def share(self) -> float:
+        """Считает долю верных ответов среди кадров бренда.
+
+        Returns:
+            Доля от 0 до 1; ноль для пустой выборки.
+        """
+
         return self.hits / self.total if self.total else 0.0
 
 
 def read_outcomes(path: Path) -> list[Outcome]:
-    """Строки прогона `adlearn cls vlm` с правильными ответами. Кадры без правды пропускаются."""
+    """Строки прогона `adlearn cls vlm` с правильными ответами. Кадры без правды пропускаются.
+
+    Args:
+        path: CSV-файл результата команды `vlm`.
+
+    Returns:
+        Строки с заполненным правильным ответом.
+    """
 
     with path.open(encoding="utf-8") as handle:
         return [
@@ -55,6 +68,13 @@ def summarize(outcomes: Iterable[Outcome], *, targets: Sequence[str]) -> dict[st
 
     Для `other` ложных срабатываний не бывает: назвать чужой щит чужим — не ошибка,
     а `unclear` вместо `other` — промах, но не выдумка.
+
+    Args:
+        outcomes: Результаты прогона по кадрам.
+        targets: Телеком-бренды, для которых нужен отдельный счёт.
+
+    Returns:
+        Счёт верных и ложных ответов по брендам и классу `other`.
     """
 
     hits: dict[str, int] = dict.fromkeys((*targets, OTHER), 0)
@@ -73,6 +93,13 @@ def summarize(outcomes: Iterable[Outcome], *, targets: Sequence[str]) -> dict[st
 
 
 def print_summary(outcomes: Sequence[Outcome], *, targets: Sequence[str]) -> None:
+    """Печатает общий и поимённый счёт прогона VLM.
+
+    Args:
+        outcomes: Результаты прогона по кадрам.
+        targets: Телеком-бренды для строк отчёта.
+    """
+
     scores = summarize(outcomes, targets=targets)
     correct = sum(item.hits for item in scores.values())
     invented = sum(item.false_positives for item in scores.values())
@@ -95,7 +122,13 @@ def print_comparison(
     *,
     targets: Sequence[str],
 ) -> None:
-    """Два прогона рядом и список кадров, где решение поменялось."""
+    """Два прогона рядом и список кадров, где решение поменялось.
+
+    Args:
+        before: Результаты предыдущего прогона.
+        after: Результаты нового прогона.
+        targets: Телеком-бренды для сравнения.
+    """
 
     earlier = {item.file: item for item in before}
     later = {item.file: item for item in after}

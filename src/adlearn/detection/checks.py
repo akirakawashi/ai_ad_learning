@@ -29,6 +29,12 @@ class Findings:
 
     @property
     def clean(self) -> bool:
+        """Проверяет, что аудит набора не нашёл проблем.
+
+        Returns:
+            `True`, если все списки находок пусты.
+        """
+
         return not any(vars(self).values())
 
 
@@ -47,17 +53,43 @@ TITLES = {
 
 
 def image_paths(root: Path, split: str) -> list[Path]:
+    """Перечисляет изображения одной части набора.
+
+    Args:
+        root: Корень набора YOLO.
+        split: Имя части набора.
+
+    Returns:
+        Пути к изображениям в устойчивом порядке.
+    """
+
     directory = root / "images" / split
     return sorted(directory.iterdir()) if directory.is_dir() else []
 
 
 def label_paths(root: Path, split: str) -> list[Path]:
+    """Перечисляет файлы разметки одной части набора.
+
+    Args:
+        root: Корень набора YOLO.
+        split: Имя части набора.
+
+    Returns:
+        Пути к файлам разметки в устойчивом порядке.
+    """
+
     directory = root / "labels" / split
     return sorted(directory.iterdir()) if directory.is_dir() else []
 
 
 def check_label(text: str, *, source: str, findings: Findings) -> None:
-    """Разметка YOLO: класс и четыре доли кадра, все внутри границ."""
+    """Разметка YOLO: класс и четыре доли кадра, все внутри границ.
+
+    Args:
+        text: Содержимое файла разметки.
+        source: Имя кадра для сообщений о проблемах.
+        findings: Общий объект, куда добавляются находки.
+    """
 
     for number, line in enumerate(text.splitlines(), start=1):
         if not line.strip():
@@ -86,6 +118,13 @@ def inspect(root: Path, *, read_images: bool = True) -> tuple[Findings, dict[str
 
     `test_handmade` в обход не входит намеренно: это подмножество теста, и его
     кадры честно лежат в двух папках сразу.
+
+    Args:
+        root: Корень собранного набора.
+        read_images: Проверять ли декодирование каждого изображения.
+
+    Returns:
+        Найденные проблемы и число рамок по частям набора.
     """
 
     findings = Findings()

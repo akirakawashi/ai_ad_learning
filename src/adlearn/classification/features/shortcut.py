@@ -40,6 +40,15 @@ DIMS = [
 
 
 def describe(path: Path) -> np.ndarray:
+    """Считает признаки размера, пропорций и резкости одного кадра.
+
+    Args:
+        path: Путь к изображению.
+
+    Returns:
+        Вектор диагностических признаков или нули для нечитаемого файла.
+    """
+
     image = read_image(path)
     if image is None:
         return np.zeros(len(DIMS), dtype=np.float32)
@@ -66,9 +75,24 @@ class ShortcutExtractor:
 
     @property
     def dims(self) -> list[str]:
+        """Возвращает имена диагностических признаков.
+
+        Returns:
+            Копия списка имён измерений.
+        """
+
         return list(DIMS)
 
     def __call__(self, paths: Sequence[Path]) -> np.ndarray:
+        """Считает диагностические признаки для пачки кадров.
+
+        Args:
+            paths: Пути к кадрам.
+
+        Returns:
+            Матрица признаков: по строке на кадр.
+        """
+
         return np.stack([describe(path) for path in paths])
 
 

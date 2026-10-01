@@ -36,6 +36,12 @@ def read_image(path: Path) -> np.ndarray | None:
     Логотипы часто приходят PNG с альфой, и `IMREAD_COLOR` молча отдал бы то, что
     лежит под прозрачностью — обычно чёрный. Тогда логотип на «белом» фоне
     получил бы огромную долю чёрного, и вся палитра поехала бы.
+
+    Args:
+        path: Путь к изображению.
+
+    Returns:
+        BGR-изображение без альфа-канала или `None`, если файл не читается.
     """
 
     image = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
@@ -56,6 +62,13 @@ def white_balance(image: np.ndarray, power: int = 6) -> np.ndarray:
     Без этого шага тёплый вечерний свет красит белую панель в жёлтый, и Tele2
     начинает давать ложный сигнал Билайна. Это самая полезная правка из всех:
     разный баланс белого искажает цвет сильнее, чем размытие и JPEG вместе.
+
+    Args:
+        image: Исходное BGR-изображение.
+        power: Степень среднего в алгоритме Shades-of-Gray.
+
+    Returns:
+        BGR-изображение с выровненным балансом белого.
     """
 
     data = image.astype(np.float32) + 1.0
@@ -71,6 +84,12 @@ def stretch_lightness(lab: np.ndarray) -> np.ndarray:
     солнца. Надёжно относительное — «самое тёмное в этом кадре». Растяжка по
     2-му и 98-му перцентилю приводит затемнённые и пересвеченные кадры к общей
     шкале, сохраняя контраст внутри кадра.
+
+    Args:
+        lab: Изображение в Lab с `L` в диапазоне 0–100.
+
+    Returns:
+        Копия Lab с растянутой светлотой или исходный массив при малом диапазоне.
     """
 
     lightness = lab[:, :, 0]
@@ -83,6 +102,15 @@ def stretch_lightness(lab: np.ndarray) -> np.ndarray:
 
 
 def to_lab(image: np.ndarray) -> np.ndarray:
+    """Переводит BGR-изображение в физические координаты Lab.
+
+    Args:
+        image: Исходное BGR-изображение.
+
+    Returns:
+        Lab-массив с `L` в 0–100 и `a`, `b` вокруг нуля.
+    """
+
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB).astype(np.float32)
     lab[:, :, 0] *= 100.0 / 255.0
     lab[:, :, 1:] -= 128.0
@@ -90,7 +118,14 @@ def to_lab(image: np.ndarray) -> np.ndarray:
 
 
 def prepare(image: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Готовит кадр к замеру цвета и отдаёт (Lab растянутый, Lab исходный)."""
+    """Готовит кадр к замеру цвета и отдаёт (Lab растянутый, Lab исходный).
+
+    Args:
+        image: Исходное BGR-изображение.
+
+    Returns:
+        Lab после растяжки светлоты и Lab до растяжки.
+    """
 
     height, width = image.shape[:2]
     scale = WORK_SIDE / max(height, width)
@@ -111,6 +146,13 @@ def membership(lab: np.ndarray, anchors: np.ndarray) -> np.ndarray:
 
     Мягкое, а не пороговое: под размытием и сдвигом баланса белого доля цвета
     меняется плавно, а не перескакивает, когда пиксель пересёк границу диапазона.
+
+    Args:
+        lab: Подготовленное изображение в Lab.
+        anchors: Координаты цветовых якорей в Lab.
+
+    Returns:
+        Принадлежность каждого пикселя каждому цветовому якорю.
     """
 
     flat = lab.reshape(-1, 3)
@@ -121,7 +163,15 @@ def membership(lab: np.ndarray, anchors: np.ndarray) -> np.ndarray:
 
 
 def pool_grid(values: np.ndarray, grid: int) -> np.ndarray:
-    """Средняя принадлежность по ячейкам сетки `grid × grid`."""
+    """Средняя принадлежность по ячейкам сетки `grid × grid`.
+
+    Args:
+        values: Попиксельные значения с каналом признаков.
+        grid: Число ячеек по каждой стороне.
+
+    Returns:
+        Средние значения признаков для всех ячеек сетки.
+    """
 
     height, width, channels = values.shape
     rows = np.arange(height) * grid // height
@@ -139,6 +189,15 @@ def adjacency_share(cells: np.ndarray, grid: int, first: int, second: int) -> fl
 
     Это и есть «фирменные цвета рядом друг с другом». Логотип — контрастное
     соседство, и оно разделяет бренды лучше, чем сами доли: чёрного много у всех.
+
+    Args:
+        cells: Значения цветовых признаков по ячейкам.
+        grid: Размер квадратной сетки.
+        first: Индекс первого цвета пары.
+        second: Индекс второго цвета пары.
+
+    Returns:
+        Доля горизонтальных и вертикальных соседств выбранной пары.
     """
 
     dominant = cells.argmax(axis=1).reshape(grid, grid)
@@ -155,7 +214,14 @@ def adjacency_share(cells: np.ndarray, grid: int, first: int, second: int) -> fl
 
 
 def colorfulness(image: np.ndarray) -> float:
-    """Метрика Хаслера — Зюсструнка: насколько кадр вообще цветной."""
+    """Метрика Хаслера — Зюсструнка: насколько кадр вообще цветной.
+
+    Args:
+        image: Трёхканальное изображение.
+
+    Returns:
+        Нормированная оценка цветности кадра.
+    """
 
     blue, green, red = (channel.astype(np.float32) for channel in cv2.split(image))
     rg = red - green
@@ -166,6 +232,12 @@ def colorfulness(image: np.ndarray) -> float:
 
 
 def feature_names() -> list[str]:
+    """Собирает имена всех цветовых признаков в порядке вектора.
+
+    Returns:
+        Имена долей, пиков, палитр и соседств.
+    """
+
     names = [f"share_{name}" for name in ANCHOR_NAMES]
     names += [f"peak_{name}" for name in ANCHOR_NAMES]
     names += [
@@ -190,7 +262,15 @@ def feature_names() -> list[str]:
 
 
 def describe(path: Path, anchors: np.ndarray) -> np.ndarray:
-    """Все цветовые признаки одного кадра."""
+    """Все цветовые признаки одного кадра.
+
+    Args:
+        path: Путь к изображению.
+        anchors: Цветовые якоря в Lab.
+
+    Returns:
+        Полный вектор цветовых признаков кадра.
+    """
 
     image = read_image(path)
     if image is None:
@@ -257,14 +337,32 @@ class ColorExtractor:
     version = "1"
 
     def __init__(self) -> None:
+        """Подготавливает цветовые якоря и имена измерений.
+        """
+
         self._anchors = anchors_lab()
         self._dims = feature_names()
 
     @property
     def dims(self) -> list[str]:
+        """Возвращает имена цветовых признаков.
+
+        Returns:
+            Имена измерений в порядке выходной матрицы.
+        """
+
         return self._dims
 
     def __call__(self, paths: Sequence[Path]) -> np.ndarray:
+        """Считает цветовые признаки для пачки кадров.
+
+        Args:
+            paths: Пути к кадрам.
+
+        Returns:
+            Матрица цветовых признаков: по строке на кадр.
+        """
+
         return np.stack([describe(path, self._anchors) for path in paths])
 
 

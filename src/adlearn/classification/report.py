@@ -13,6 +13,13 @@ logger = logging.getLogger("cls")
 
 
 def print_scores(results: list[ArmResult], *, baseline: str = "визуал") -> None:
+    """Печатает macro F1 каждой армы и парную дельту к базовой.
+
+    Args:
+        results: Результаты всех арм.
+        baseline: Имя армы, относительно которой считать дельту.
+    """
+
     reference = next((item for item in results if item.name == baseline), None)
     logger.info("%-28s %-16s %s", "арма", "macro F1", "дельта к базе")
     for item in results:
@@ -32,6 +39,12 @@ def print_scores(results: list[ArmResult], *, baseline: str = "визуал") ->
 
 
 def print_matrix(result: ArmResult) -> None:
+    """Печатает матрицу ошибок одной армы.
+
+    Args:
+        result: Результат армы с ответами первой итерации.
+    """
+
     matrix = result.matrix
     logger.info("\nconfusion matrix — %s (строки: правда, столбцы: ответ)", result.name)
     logger.info("%-12s%s", "", "".join(f"{name:>10}" for name in BRANDS))

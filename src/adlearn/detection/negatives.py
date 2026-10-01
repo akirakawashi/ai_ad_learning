@@ -44,15 +44,36 @@ class NegativesConfig:
 
     @property
     def images_dir(self) -> Path:
+        """Возвращает каталог подготовленных отрицательных кадров.
+
+        Returns:
+            Путь к исходным и аугментированным изображениям.
+        """
+
         return self.output / "images"
 
     @property
     def labels_dir(self) -> Path:
+        """Возвращает каталог пустой разметки отрицательных кадров.
+
+        Returns:
+            Путь к YOLO-файлам без рамок.
+        """
+
         return self.output / "labels"
 
 
 def augment(image: Image.Image, *, config: NegativesConfig, rng: random.Random) -> Image.Image:
-    """Отражение, случайный кроп, яркость, контраст и лёгкое размытие."""
+    """Отражение, случайный кроп, яркость, контраст и лёгкое размытие.
+
+    Args:
+        image: Исходное RGB-изображение.
+        config: Диапазоны случайных преобразований.
+        rng: Генератор случайных значений.
+
+    Returns:
+        Аугментированная копия изображения.
+    """
 
     result = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
     width, height = result.size
@@ -70,7 +91,14 @@ def augment(image: Image.Image, *, config: NegativesConfig, rng: random.Random) 
 
 
 def prepare(config: NegativesConfig) -> tuple[int, int, int]:
-    """Раскладывает оригиналы и их копии с пустой разметкой. Отдаёт счётчики."""
+    """Раскладывает оригиналы и их копии с пустой разметкой. Отдаёт счётчики.
+
+    Args:
+        config: Пути, параметры аугментации и начальное значение генератора.
+
+    Returns:
+        Число оригиналов, аугментированных копий и пропущенных файлов.
+    """
 
     config.images_dir.mkdir(parents=True, exist_ok=True)
     config.labels_dir.mkdir(parents=True, exist_ok=True)

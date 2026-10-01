@@ -28,17 +28,45 @@ logger = logging.getLogger("prelabel")
 
 
 def batched(paths: list[Path], size: int) -> Iterator[list[Path]]:
+    """Делит пути на последовательные пачки.
+
+    Args:
+        paths: Пути к изображениям.
+        size: Максимальный размер пачки.
+
+    Yields:
+        Очередная пачка путей.
+    """
+
     for start in range(0, len(paths), size):
         yield paths[start : start + size]
 
 
 def load_detector(config: PrelabelConfig) -> YOLO:
+    """Загружает детектор из настроенных весов.
+
+    Args:
+        config: Настройки псевдоразметки.
+
+    Returns:
+        Модель YOLO, готовая к предсказанию.
+    """
+
     if not config.weights.exists():
         raise FileNotFoundError(config.weights)
     return YOLO(str(config.weights))
 
 
 def run(config: PrelabelConfig) -> list[ImageReport]:
+    """Размечает исходные изображения и собирает файлы для проверки.
+
+    Args:
+        config: Пути и пороги псевдоразметки.
+
+    Returns:
+        Отчёт по каждому обработанному изображению.
+    """
+
     images = find_images(config.source)
     if not images:
         raise FileNotFoundError(f"В {config.source} нет фотографий.")

@@ -28,17 +28,46 @@ class Extractor(Protocol):
 
     @property
     def dims(self) -> list[str]:
-        """Имена измерений — нужны, чтобы читать веса обученной модели."""
+        """Имена измерений — нужны, чтобы читать веса обученной модели.
+
+        Returns:
+            Имена измерений признакового блока.
+        """
 
     def __call__(self, paths: Sequence[Path]) -> np.ndarray:
-        """Матрица (кадров × len(dims)) в том же порядке, что и `paths`."""
+        """Матрица (кадров × len(dims)) в том же порядке, что и `paths`.
+
+        Args:
+            paths: Пути к кадрам в требуемом порядке.
+
+        Returns:
+            Матрица признаков: по строке на каждый кадр.
+        """
 
 
 REGISTRY: dict[str, Callable[[], Extractor]] = {}
 
 
 def register(name: str) -> Callable[[Callable[[], Extractor]], Callable[[], Extractor]]:
+    """Создаёт декоратор регистрации фабрики экстрактора.
+
+    Args:
+        name: Имя экстрактора в реестре.
+
+    Returns:
+        Декоратор, который сохранит фабрику под указанным именем.
+    """
+
     def wrap(factory: Callable[[], Extractor]) -> Callable[[], Extractor]:
+        """Регистрирует фабрику экстрактора.
+
+        Args:
+            factory: Фабрика без аргументов.
+
+        Returns:
+            Та же фабрика без обёртки.
+        """
+
         REGISTRY[name] = factory
         return factory
 
@@ -46,6 +75,15 @@ def register(name: str) -> Callable[[Callable[[], Extractor]], Callable[[], Extr
 
 
 def get(name: str) -> Extractor:
+    """Создаёт зарегистрированный экстрактор по имени.
+
+    Args:
+        name: Имя экстрактора в реестре.
+
+    Returns:
+        Новый экземпляр выбранного экстрактора.
+    """
+
     if name not in REGISTRY:
         raise KeyError(f"Экстрактор {name!r} не зарегистрирован. Есть: {sorted(REGISTRY)}")
     return REGISTRY[name]()

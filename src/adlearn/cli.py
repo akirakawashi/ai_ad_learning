@@ -11,6 +11,11 @@ from adlearn.detection import cli as detection_cli
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Собирает корневой парсер команд подготовки данных и обучения.
+
+    Returns:
+        Парсер с командами детекции и классификации.
+    """
     parser = argparse.ArgumentParser(
         prog="adlearn",
         description="Подготовка данных и обучение моделей AI Ad.",
@@ -23,4 +28,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Разбирает аргументы и запускает выбранную команду.
+
+    Args:
+        argv: Аргументы без имени программы или `None` для чтения `sys.argv`.
+
+    Returns:
+        Код завершения команды.
+    """
     return dispatch(build_parser(), argv)

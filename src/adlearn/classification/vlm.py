@@ -186,6 +186,12 @@ class VlmAnswer:
 
     @property
     def name_in_text(self) -> bool:
+        """Проверяет, присутствует ли название выбранного бренда в прочитанном тексте.
+
+        Returns:
+            `True`, если найдена допустимая форма названия.
+        """
+
         low = self.visible_text.lower()
         packed = re.sub(r"\s+", "", low)
         forms = NAME_FORMS.get(self.brand, ())
@@ -210,6 +216,9 @@ class VlmAnswer:
         уходит на проверку — и заявленное «прочитал название», которого в тексте
         нет, тоже: это модель противоречит сама себе. Ответ по одним цветам не
         спасает даже название: на проверке такие ответы были догадками.
+
+        Returns:
+            Статус доверия: подтверждён, отклонён или требует проверки.
         """
 
         if self.error or self.brand not in NAME_FORMS:
@@ -221,7 +230,14 @@ class VlmAnswer:
         return VERDICT_REVIEW
 
     def decided(self, *, accept_logo: bool = False) -> str:
-        """Итоговый ответ после проверки основания."""
+        """Итоговый ответ после проверки основания.
+
+        Args:
+            accept_logo: Принимать ли ответ по одному логотипу без названия в тексте.
+
+        Returns:
+            Подтверждённый бренд или `unclear`.
+        """
 
         verdict = self.verdict
         if verdict == VERDICT_CONFIRMED:
@@ -232,7 +248,14 @@ class VlmAnswer:
 
 
 def encode(path: Path) -> str:
-    """Кадр в data-URL, уменьшенный до `MAX_SIDE` по длинной стороне."""
+    """Кадр в data-URL, уменьшенный до `MAX_SIDE` по длинной стороне.
+
+    Args:
+        path: Путь к изображению.
+
+    Returns:
+        JPEG в data-URL, при необходимости уменьшенный по длинной стороне.
+    """
 
     image = cv2.imread(str(path), cv2.IMREAD_COLOR)
     if image is None:
@@ -278,6 +301,20 @@ def ask(
     норовит написать ход мысли перед JSON. Флаг уходит на сервер всегда, даже там,
     где рассуждения и так выключены настройками: подбор промпта должен мерить ровно
     тот запрос, который шлёт пайплайн, а чужие настройки могут поменяться без нас.
+
+    Args:
+        path: Путь к кадру.
+        url: Базовый адрес OpenAI-совместимого сервера.
+        model: Имя модели для общего сервера.
+        api_key: Ключ Bearer-аутентификации.
+        thinking: Оставить ли рассуждения модели включёнными.
+        prompt: Инструкция по классификации кадра.
+        temperature: Температура генерации.
+        timeout: Таймаут HTTP-запроса в секундах.
+        max_tokens: Предел токенов ответа.
+
+    Returns:
+        Разобранный ответ модели или `unclear` с текстом ошибки.
     """
 
     body: dict[str, Any] = {
@@ -329,6 +366,17 @@ def ask(
 
 
 def ask_many(paths: Sequence[Path], *, url: str = DEFAULT_URL, **kwargs: object) -> list[VlmAnswer]:
+    """Последовательно отправляет модели несколько кадров.
+
+    Args:
+        paths: Пути к кадрам.
+        url: Базовый адрес сервера модели.
+        kwargs: Остальные параметры функции [ask].
+
+    Returns:
+        Ответ модели для каждого кадра в исходном порядке.
+    """
+
     return [ask(path, url=url, **kwargs) for path in paths]  # type: ignore[arg-type]
 
 
@@ -338,6 +386,14 @@ def health(url: str = DEFAULT_URL, *, api_key: str = DEFAULT_API_KEY, timeout: f
     У чужого сервера `/health` открыт всем, а список моделей закрыт ключом. Проверять
     только первое опасно: с неверным ключом прогон стартует, а потом каждый кадр
     получает 401 и уходит в сбой. Поэтому там, где ключ задан, спрашиваем модели.
+
+    Args:
+        url: Базовый адрес сервера модели.
+        api_key: Ключ Bearer-аутентификации.
+        timeout: Таймаут проверки в секундах.
+
+    Returns:
+        `True`, если сервер доступен и принимает ключ.
     """
 
     probe = "/v1/models" if api_key else "/health"

@@ -16,10 +16,29 @@ from adlearn.classification.features.base import Extractor
 
 
 def cache_path(directory: Path, extractor: Extractor) -> Path:
+    """Строит путь к кэшу по имени и версии экстрактора.
+
+    Args:
+        directory: Каталог кэшей признаков.
+        extractor: Экстрактор с именем и версией.
+
+    Returns:
+        Путь к NPZ-файлу кэша.
+    """
+
     return directory / f"{extractor.name}-v{extractor.version}.npz"
 
 
 def load(path: Path) -> tuple[list[str], np.ndarray, list[str]] | None:
+    """Читает признаки и метаданные из NPZ-кэша.
+
+    Args:
+        path: Путь к файлу кэша.
+
+    Returns:
+        Идентификаторы, матрица и имена измерений либо `None`, если файла нет.
+    """
+
     if not path.exists():
         return None
     data = np.load(path, allow_pickle=False)
@@ -27,6 +46,15 @@ def load(path: Path) -> tuple[list[str], np.ndarray, list[str]] | None:
 
 
 def save(*, path: Path, ids: Sequence[str], values: np.ndarray, dims: Sequence[str]) -> None:
+    """Сохраняет признаки и метаданные в сжатый NPZ-файл.
+
+    Args:
+        path: Путь к файлу кэша.
+        ids: Идентификаторы кадров.
+        values: Матрица признаков.
+        dims: Имена измерений.
+    """
+
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         path,
@@ -48,6 +76,16 @@ def compute(
 
     Кэш пересчитывается целиком, если состав кадров изменился: частичное
     доливание молча смешало бы две версии набора.
+
+    Args:
+        extractor: Экстрактор признаков.
+        paths: Пути к кадрам.
+        ids: Устойчивые идентификаторы кадров.
+        directory: Каталог кэшей.
+        refresh: Игнорировать ли существующий кэш.
+
+    Returns:
+        Матрица признаков в порядке входных кадров.
     """
 
     path = cache_path(directory, extractor)

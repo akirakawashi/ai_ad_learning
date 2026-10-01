@@ -12,11 +12,27 @@ PADDING_COLOR = 255
 
 
 def blank(side: int) -> np.ndarray:
+    """Создаёт белую квадратную плитку.
+
+    Args:
+        side: Сторона плитки в пикселях.
+
+    Returns:
+        Белое BGR-изображение размера `side × side`.
+    """
     return np.full((side, side, 3), PADDING_COLOR, dtype=np.uint8)
 
 
 def tile(image: np.ndarray, side: int) -> np.ndarray:
-    """Вписывает кадр в квадрат, не растягивая: поля добеливаются."""
+    """Вписывает кадр в квадрат, не растягивая: поля добеливаются.
+
+    Args:
+        image: Исходное BGR-изображение.
+        side: Сторона итоговой плитки в пикселях.
+
+    Returns:
+        Квадратная плитка с масштабированным изображением по центру.
+    """
 
     height, width = image.shape[:2]
     scale = side / max(height, width)
@@ -40,6 +56,16 @@ def save_sheets(
 
     Смотреть семь тысяч кадров по одному невозможно, а лист из дюжины
     просматривается за секунды — и промах видно сразу.
+
+    Args:
+        tiles: Готовые квадратные плитки.
+        output: Каталог для JPEG-листов.
+        columns: Число колонок на листе.
+        rows: Число строк на листе.
+        side: Сторона одной плитки в пикселях.
+
+    Returns:
+        Число записанных листов.
     """
 
     output.mkdir(parents=True, exist_ok=True)

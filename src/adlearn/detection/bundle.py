@@ -16,6 +16,12 @@ def files_to_review(report_path: Path) -> list[str]:
 
     Сначала кадры без единой находки — там модель промахнулась целиком, и правка
     даёт больше всего. За ними слабые, от самой сомнительной рамки.
+
+    Args:
+        report_path: CSV-отчёт псевдоразметки.
+
+    Returns:
+        Имена пустых и слабых кадров в порядке ручного разбора.
     """
 
     rows = [row for row in read_report(report_path) if row["status"] != STATUS_OK]
@@ -31,10 +37,28 @@ def files_to_review(report_path: Path) -> list[str]:
 
 
 def chunks(names: list[str], size: int) -> list[list[str]]:
+    """Делит последовательность имён на пачки заданного размера.
+
+    Args:
+        names: Имена кадров.
+        size: Максимальное число имён в пачке.
+
+    Returns:
+        Последовательные пачки имён.
+    """
+
     return [names[start : start + size] for start in range(0, len(names), size)]
 
 
 def pack_images(*, archive: Path, images_dir: Path, names: list[str]) -> None:
+    """Упаковывает выбранные изображения в ZIP без повторного сжатия.
+
+    Args:
+        archive: Путь к создаваемому архиву.
+        images_dir: Каталог исходных изображений.
+        names: Имена изображений для архива.
+    """
+
     archive.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_STORED) as bundle:
         for name in names:
@@ -58,6 +82,17 @@ def build(
 
     Картинки складываются без сжатия — jpg и png уже сжаты, а упаковка семисот
     мегабайт впустую стоит минут.
+
+    Args:
+        report_path: CSV-отчёт псевдоразметки.
+        images_dir: Каталог изображений.
+        labels_dir: Каталог YOLO-разметки.
+        output: Каталог для архивов.
+        class_name: Имя класса в архивах разметки.
+        chunk_size: Максимум кадров в одной задаче CVAT.
+
+    Returns:
+        Пары архивов изображений и разметки с числом кадров.
     """
 
     names = files_to_review(report_path)

@@ -37,6 +37,14 @@ def classify(*, boxes: int, min_confidence: float, weak_below: float) -> str:
 
     Пустой кадр подозрителен сам по себе: в папке лежат щиты, значит модель либо
     промахнулась, либо щит на фотографии нетипичный — и то и другое интересно.
+
+    Args:
+        boxes: Число найденных рамок.
+        min_confidence: Минимальная уверенность среди рамок.
+        weak_below: Порог слабой рамки.
+
+    Returns:
+        Статус кадра: пустой, слабый или готовый.
     """
 
     if boxes == 0:
@@ -47,7 +55,14 @@ def classify(*, boxes: int, min_confidence: float, weak_below: float) -> str:
 
 
 def review_order(reports: list[ImageReport]) -> list[ImageReport]:
-    """Сначала пустые кадры, затем слабые от самой сомнительной рамки."""
+    """Сначала пустые кадры, затем слабые от самой сомнительной рамки.
+
+    Args:
+        reports: Отчёты по кадрам.
+
+    Returns:
+        Пустые и слабые кадры в порядке ручной проверки.
+    """
 
     empty = [item for item in reports if item.status == STATUS_EMPTY]
     weak = sorted(
@@ -58,6 +73,13 @@ def review_order(reports: list[ImageReport]) -> list[ImageReport]:
 
 
 def write_report(*, reports: list[ImageReport], path: Path) -> None:
+    """Записывает подробный CSV-отчёт псевдоразметки.
+
+    Args:
+        reports: Отчёты по кадрам.
+        path: Путь к создаваемому CSV.
+    """
+
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(REPORT_FIELDS))
@@ -77,11 +99,27 @@ def write_report(*, reports: list[ImageReport], path: Path) -> None:
 
 
 def read_report(path: Path) -> list[dict[str, str]]:
+    """Читает CSV-отчёт псевдоразметки.
+
+    Args:
+        path: Путь к CSV-отчёту.
+
+    Returns:
+        Строки отчёта как словари строк.
+    """
+
     with path.open(encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
 
 
 def write_review_list(*, reports: list[ImageReport], path: Path) -> None:
+    """Записывает короткую очередь ручной проверки.
+
+    Args:
+        reports: Отчёты по кадрам.
+        path: Путь к текстовому файлу.
+    """
+
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         f"{item.status}\t{item.min_confidence:.2f}\t{item.file}" for item in review_order(reports)
@@ -90,6 +128,15 @@ def write_review_list(*, reports: list[ImageReport], path: Path) -> None:
 
 
 def summary(reports: list[ImageReport]) -> dict[str, int]:
+    """Считает кадры по статусам псевдоразметки.
+
+    Args:
+        reports: Отчёты по кадрам.
+
+    Returns:
+        Число пустых, слабых и готовых кадров.
+    """
+
     counts = {STATUS_EMPTY: 0, STATUS_WEAK: 0, STATUS_OK: 0}
     for item in reports:
         counts[item.status] += 1

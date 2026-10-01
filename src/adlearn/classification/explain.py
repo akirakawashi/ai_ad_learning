@@ -44,6 +44,12 @@ class Explanation:
 
     @property
     def answer(self) -> tuple[str, float]:
+        """Выбирает класс с наибольшей вероятностью.
+
+        Returns:
+            Название бренда и его вероятность.
+        """
+
         best = int(np.argmax(self.probabilities))
         return self.brands[best], float(self.probabilities[best])
 
@@ -54,11 +60,26 @@ class Backbone:
     """Тот же ResNet50, но отдаёт признаки до усреднения — сеткой 7×7."""
 
     def __init__(self, device: str = "cuda") -> None:
+        """Загружает пространственную часть ResNet50 на доступное устройство.
+
+        Args:
+            device: Желаемое устройство PyTorch.
+        """
+
         self.device = device if torch.cuda.is_available() else "cpu"
         model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
         self.stem = nn.Sequential(*list(model.children())[:-2]).eval().to(self.device)
 
     def prepare(self, path: Path) -> tuple[np.ndarray, torch.Tensor]:
+        """Готовит кадр и нормализованный тензор для ResNet50.
+
+        Args:
+            path: Путь к изображению.
+
+        Returns:
+            RGB-кадр 224 × 224 и тензор формы `(1, 3, 224, 224)`.
+        """
+
         image = read_image(path)
         if image is None:
             image = np.full((SIDE, SIDE, 3), 255, dtype=np.uint8)
@@ -71,7 +92,14 @@ class Backbone:
 
     @torch.inference_mode()
     def spatial(self, path: Path) -> tuple[np.ndarray, np.ndarray]:
-        """Кадр и его признаки формой (2048, 7, 7)."""
+        """Кадр и его признаки формой (2048, 7, 7).
+
+        Args:
+            path: Путь к изображению.
+
+        Returns:
+            RGB-кадр и пространственные признаки формы `(2048, 7, 7)`.
+        """
 
         rgb, tensor = self.prepare(path)
         features = self.stem(tensor.to(self.device))[0].float().cpu().numpy()
@@ -83,6 +111,13 @@ def visual_weights(bundle: dict[str, Any], class_index: int) -> np.ndarray:
 
     Голова обучалась на стандартизованных значениях, поэтому вес каждого признака
     делится на его разброс — иначе карта отразила бы масштаб, а не важность.
+
+    Args:
+        bundle: Сохранённая модель, стандартизаторы и имена измерений.
+        class_index: Индекс класса в голове классификатора.
+
+    Returns:
+        Веса визуальных признаков в исходном масштабе.
     """
 
     order = list(bundle["scaler"]._scalers)
@@ -97,6 +132,14 @@ def activation_map(features: np.ndarray, weights: np.ndarray, side: int = SIDE) 
 
     Отрицательный вклад срезается: интересно, что модель считает доводом *за*
     класс, а «здесь ничего похожего» видно и так.
+
+    Args:
+        features: Пространственные признаки формы `(каналы, высота, ширина)`.
+        weights: Вес каждого канала для выбранного класса.
+        side: Сторона итоговой карты в пикселях.
+
+    Returns:
+        Квадратная карта положительного вклада со значениями от 0 до 1.
     """
 
     raw = np.tensordot(weights, features, axes=([0], [0]))
@@ -111,7 +154,16 @@ def activation_map(features: np.ndarray, weights: np.ndarray, side: int = SIDE) 
 
 
 def overlay(frame: np.ndarray, heatmap: np.ndarray, strength: float = 0.55) -> np.ndarray:
-    """Кадр с наложенной картой внимания."""
+    """Кадр с наложенной картой внимания.
+
+    Args:
+        frame: Исходный RGB-кадр.
+        heatmap: Карта внимания со значениями от 0 до 1.
+        strength: Максимальная непрозрачность цветного слоя.
+
+    Returns:
+        RGB-кадр с цветной картой внимания.
+    """
 
     colored = cv2.applyColorMap((heatmap * 255).astype(np.uint8), cv2.COLORMAP_JET)
     colored = cv2.cvtColor(colored, cv2.COLOR_BGR2RGB)
@@ -126,7 +178,17 @@ def explain(
     device: str = "cuda",
     backbone: Backbone | None = None,
 ) -> list[Explanation]:
-    """Считает вероятности, карты внимания и цветовые признаки для кадров."""
+    """Считает вероятности, карты внимания и цветовые признаки для кадров.
+
+    Args:
+        paths: Пути к кадрам.
+        bundle: Сохраненная голова, шкалы, бренды и имена признаков.
+        device: Желаемое устройство PyTorch.
+        backbone: Готовый пространственный энкодер или `None` для создания нового.
+
+    Returns:
+        Разбор вероятностей, внимания и цвета для каждого кадра.
+    """
 
     from adlearn.classification.features import ColorExtractor, VisualExtractor
 

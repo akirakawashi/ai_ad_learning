@@ -24,11 +24,29 @@ class BlockScaler:
     _scalers: dict[str, StandardScaler] = field(default_factory=dict, init=False)
 
     def fit(self, blocks: dict[str, np.ndarray]) -> BlockScaler:
+        """Обучает отдельный стандартизатор для каждого блока признаков.
+
+        Args:
+            blocks: Матрицы признаков по именам блоков.
+
+        Returns:
+            Текущий объект с обученными стандартизаторами.
+        """
+
         for name, values in blocks.items():
             self._scalers[name] = StandardScaler().fit(values)
         return self
 
     def transform(self, blocks: dict[str, np.ndarray]) -> np.ndarray:
+        """Стандартизует, нормирует, взвешивает и склеивает блоки.
+
+        Args:
+            blocks: Матрицы признаков в том же составе, что при обучении.
+
+        Returns:
+            Общая матрица признаков для головы классификатора.
+        """
+
         parts = []
         for name, values in blocks.items():
             scaled = self._scalers[name].transform(values)
@@ -37,6 +55,15 @@ class BlockScaler:
         return np.concatenate(parts, axis=1)
 
     def fit_transform(self, blocks: dict[str, np.ndarray]) -> np.ndarray:
+        """Обучает преобразование блоков и сразу применяет его.
+
+        Args:
+            blocks: Матрицы признаков по именам блоков.
+
+        Returns:
+            Общая преобразованная матрица признаков.
+        """
+
         return self.fit(blocks).transform(blocks)
 
 
@@ -47,6 +74,13 @@ def make_head(*, regularization: float = 1.0, seed: int = 0) -> LogisticRegressi
     меньше разброса, и сравнение арм получается про признаки, а не про удачу
     при обучении. `balanced` выравнивает вклад классов, чтобы macro F1 не
     перекосило в сторону самого крупного.
+
+    Args:
+        regularization: Обратная сила регуляризации `C`.
+        seed: Начальное значение генератора модели.
+
+    Returns:
+        Настроенная, но ещё не обученная логистическая регрессия.
     """
 
     return LogisticRegression(

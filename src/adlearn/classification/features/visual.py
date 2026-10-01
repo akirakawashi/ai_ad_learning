@@ -32,6 +32,13 @@ def letterbox(image: np.ndarray, side: int) -> np.ndarray:
 
     Растяжение под квадрат ломает пропорции логотипа, а он у брендов узнаваем
     именно формой. Поля белые, потому что чёрные читались бы как фирменный цвет.
+
+    Args:
+        image: Исходное BGR-изображение.
+        side: Сторона итогового квадрата в пикселях.
+
+    Returns:
+        Квадратное BGR-изображение с исходными пропорциями.
     """
 
     import cv2
@@ -57,15 +64,34 @@ class VisualExtractor:
     version = "resnet50-1"
 
     def __init__(self, device: str = "cuda", batch_size: int = 32) -> None:
+        """Настраивает пакетный визуальный экстрактор.
+
+        Args:
+            device: Желаемое устройство PyTorch.
+            batch_size: Число кадров в одной пачке.
+        """
+
         self.device = device if torch.cuda.is_available() else "cpu"
         self.batch_size = batch_size
         self._model: nn.Module | None = None
 
     @property
     def dims(self) -> list[str]:
+        """Возвращает имена координат эмбеддинга ResNet50.
+
+        Returns:
+            Список из 2048 имён измерений.
+        """
+
         return [f"visual_{index:04d}" for index in range(2048)]
 
     def _load(self) -> nn.Module:
+        """Лениво загружает ResNet50 без классификационной головы.
+
+        Returns:
+            Модель в режиме оценки на выбранном устройстве.
+        """
+
         if self._model is None:
             model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
             model.fc = nn.Identity()
@@ -73,6 +99,15 @@ class VisualExtractor:
         return self._model
 
     def _batch(self, paths: Sequence[Path]) -> torch.Tensor:
+        """Читает и нормализует одну пачку кадров для ResNet50.
+
+        Args:
+            paths: Пути к кадрам пачки.
+
+        Returns:
+            Тензор формы `(кадры, 3, 224, 224)`.
+        """
+
         frames = []
         for path in paths:
             image = read_image(path)
@@ -87,6 +122,15 @@ class VisualExtractor:
 
     @torch.inference_mode()
     def __call__(self, paths: Sequence[Path]) -> np.ndarray:
+        """Считает визуальные эмбеддинги пачками.
+
+        Args:
+            paths: Пути к кадрам.
+
+        Returns:
+            Матрица эмбеддингов формы `(кадры, 2048)`.
+        """
+
         model = self._load()
         chunks = []
         for start in range(0, len(paths), self.batch_size):

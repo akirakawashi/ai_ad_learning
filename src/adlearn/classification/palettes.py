@@ -38,7 +38,11 @@ KERNEL_SIGMA = 15.0
 
 
 def anchors_lab() -> np.ndarray:
-    """Якоря в Lab: L в [0,100], a и b вокруг нуля."""
+    """Якоря в Lab: L в [0,100], a и b вокруг нуля.
+
+    Returns:
+        Матрица координат цветовых якорей в пространстве Lab.
+    """
 
     bgr = np.array([[ANCHORS[name][::-1] for name in ANCHOR_NAMES]], dtype=np.uint8)
     lab = cv2.cvtColor(bgr, cv2.COLOR_BGR2LAB)[0].astype(np.float32)

@@ -33,31 +33,56 @@ class TaskLayout:
 
     @property
     def root(self) -> Path:
+        """Возвращает корневой каталог данных задачи.
+
+        Returns:
+            Путь `data/<задача>`.
+        """
         return DATA / self.name
 
     @property
     def prelabel(self) -> Path:
-        """Результат псевдоразметки: то, что уходит человеку на правку."""
+        """Возвращает каталог результата псевдоразметки.
+
+        Returns:
+            Путь к данным, которые уходят человеку на правку.
+        """
         return self.root / "prelabel"
 
     @property
     def dataset(self) -> Path:
-        """Собранный набор, поделённый на части."""
+        """Возвращает каталог собранного набора.
+
+        Returns:
+            Путь к набору, разделённому на обучение, проверку и тест.
+        """
         return self.root / "dataset"
 
     @property
     def export(self) -> Path:
-        """Выгрузки из разметчика."""
+        """Возвращает каталог выгрузок из разметчика.
+
+        Returns:
+            Путь к выгрузкам задачи.
+        """
         return self.root / "export"
 
     @property
     def preview(self) -> Path:
-        """Контактные листы для просмотра разметки глазами."""
+        """Возвращает каталог контактных листов.
+
+        Returns:
+            Путь к предпросмотру разметки.
+        """
         return self.root / "preview"
 
     @property
     def weights(self) -> Path:
-        """Рабочие веса — копия из пайплайна, точка отсчёта для обучения."""
+        """Возвращает путь к рабочим весам задачи.
+
+        Returns:
+            Путь к файлу `best.pt` в каталоге моделей.
+        """
         return MODELS / self.name / "best.pt"
 
 

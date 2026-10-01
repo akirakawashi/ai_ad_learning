@@ -39,6 +39,12 @@ class SplitCounts:
 
     @property
     def empty_share(self) -> float:
+        """Считает долю кадров без рамок в части набора.
+
+        Returns:
+            Доля от 0 до 1; ноль для пустой части.
+        """
+
         return self.empty / self.frames if self.frames else 0.0
 
 
@@ -51,7 +57,15 @@ class DatasetCounts:
 
 
 def unpack_export(*, archive: Path, destination: Path) -> Path:
-    """Распаковывает выгрузку CVAT и отдаёт папку с кадрами и разметкой."""
+    """Распаковывает выгрузку CVAT и отдаёт папку с кадрами и разметкой.
+
+    Args:
+        archive: ZIP-выгрузка задачи CVAT.
+        destination: Каталог для распаковки.
+
+    Returns:
+        Каталог `obj_train_data` с кадрами и разметкой.
+    """
 
     reset_dir(destination)
     with zipfile.ZipFile(archive) as bundle:
@@ -63,7 +77,14 @@ def unpack_export(*, archive: Path, destination: Path) -> Path:
 
 
 def collect_handmade(directory: Path) -> list[Sample]:
-    """Кадры из выгрузки CVAT — те, у которых рядом лежит файл разметки."""
+    """Кадры из выгрузки CVAT — те, у которых рядом лежит файл разметки.
+
+    Args:
+        directory: Каталог распакованной выгрузки CVAT.
+
+    Returns:
+        Кадры, у которых рядом есть файл ручной разметки.
+    """
 
     return [
         Sample(image=path, label=directory / f"{path.stem}.txt", handmade=True)
@@ -73,7 +94,14 @@ def collect_handmade(directory: Path) -> list[Sample]:
 
 
 def collect_confident(*, prelabel_dir: Path) -> list[Sample]:
-    """Кадры, где модель не сомневалась. Слабые и пустые ждут ручной правки."""
+    """Кадры, где модель не сомневалась. Слабые и пустые ждут ручной правки.
+
+    Args:
+        prelabel_dir: Каталог результата псевдоразметки.
+
+    Returns:
+        Кадры со статусом `ок` и существующей разметкой.
+    """
 
     images_dir = prelabel_dir / "images"
     labels_dir = prelabel_dir / "labels"
@@ -106,6 +134,15 @@ def split_pool(
     кадрах разметку поставила текущая модель, и метрика там показывает согласие с
     ней, а не правоту: старая модель получает на них почти единицу просто потому,
     что сравнивается сама с собой.
+
+    Args:
+        samples: Кадры с разметкой.
+        validation_share: Доля проверочной части.
+        test_share: Доля тестовой части.
+        seed: Начальное значение перемешивания.
+
+    Returns:
+        Списки обучения, проверки и теста.
     """
 
     return stratified_split(
@@ -123,6 +160,14 @@ def link_split(*, samples: list[Sample], output: Path, split: str) -> SplitCount
 
     Кадр без файла разметки получает пустой `.txt`: для YOLO это «рекламы на
     кадре нет», и такой кадр учит модель молчать.
+
+    Args:
+        samples: Кадры выбранной части.
+        output: Корень собираемого набора.
+        split: Имя части набора.
+
+    Returns:
+        Число всех и пустых кадров в части.
     """
 
     images_dir = reset_dir(output / "images" / split)
@@ -147,6 +192,11 @@ def write_data_yaml(*, path: Path, root: Path, class_name: str) -> None:
     Свой ключ `test_handmade` записывается полным путём: имена `train`, `val` и
     `test` библиотека достраивает от `path`, а незнакомый ключ оставляет как есть
     и потом не находит папку.
+
+    Args:
+        path: Путь к создаваемому YAML.
+        root: Корень набора.
+        class_name: Имя единственного класса.
     """
 
     path.write_text(
@@ -167,7 +217,14 @@ def write_data_yaml(*, path: Path, root: Path, class_name: str) -> None:
 
 
 def build(config: DatasetConfig) -> DatasetCounts:
-    """Собирает набор целиком: распаковка, отбор, деление, ссылки, описание."""
+    """Собирает набор целиком: распаковка, отбор, деление, ссылки, описание.
+
+    Args:
+        config: Пути и параметры деления набора.
+
+    Returns:
+        Счётчики всех собранных частей.
+    """
 
     handmade_dir = unpack_export(
         archive=config.export_archive, destination=config.output / "handmade"
@@ -226,6 +283,12 @@ def collect_source(source: Source) -> list[Sample]:
     разложена по частям набора. Кадр без файла разметки пропускается: у
     источника с разметкой это значит «не проверен», и подставлять ему пустую
     разметку нельзя — обучение решит, что рекламы на кадре нет.
+
+    Args:
+        source: Описание каталогов одного источника.
+
+    Returns:
+        Кадры источника с найденной или пустой разметкой.
     """
 
     images = {path.stem: path for path in find_images(source.images, recursive=True)}
@@ -253,6 +316,12 @@ def drop_duplicates(samples: list[Sample]) -> list[Sample]:
 
     Сравниваются имя, размер файла и начало содержимого: одинаковых снимков
     ровно столько, чтобы читать их целиком было незачем.
+
+    Args:
+        samples: Кадры из одного или нескольких источников.
+
+    Returns:
+        Кадры без повторов по имени и содержимому.
     """
 
     seen_stems: set[str] = set()
@@ -279,6 +348,14 @@ def keep_pairs_together(
 
     Копия отличается от оригинала зеркалом и яркостью, то есть это тот же кадр.
     Разъехавшись по частям, они превратили бы тест в проверку на уже виденном.
+
+    Args:
+        train: Обучающая часть.
+        validation: Проверочная часть.
+        test: Тестовая часть.
+
+    Returns:
+        Те же части после переноса аугментированных копий к оригиналам.
     """
 
     home = {}
@@ -300,7 +377,13 @@ def keep_pairs_together(
 
 
 def write_multi_yaml(*, path: Path, root: Path, class_name: str) -> None:
-    """Описание набора с отложенной частью, снятой отдельной техникой."""
+    """Описание набора с отложенной частью, снятой отдельной техникой.
+
+    Args:
+        path: Путь к создаваемому YAML.
+        root: Корень набора.
+        class_name: Имя единственного класса.
+    """
 
     path.write_text(
         "\n".join(
@@ -346,6 +429,18 @@ def build_multi(
     же записей, что и обучение: соседние кадры, те же щиты, тот же свет, и
     метрика на нём выходит выше настоящей. Съёмка другой камерой в другом месте
     показывает, чего модель стоит на самом деле.
+
+    Args:
+        sources: Источники для обучения, проверки и обычного теста.
+        holdout: Отдельный источник для честного теста или `None`.
+        output: Корень собираемого набора.
+        class_name: Имя единственного класса.
+        validation_share: Доля проверочной части.
+        test_share: Доля обычной тестовой части.
+        seed: Начальное значение перемешивания.
+
+    Returns:
+        Счётчики частей и исходных источников.
     """
 
     pool: list[Sample] = []
@@ -390,6 +485,15 @@ def thin_negatives(*, labels: Path, stride: int, keep_prefix: str, destination: 
     смотрел человек, и именно на них модель училась ошибаться. Прореживаются
     только те, где детектор изначально не нашёл ничего, — их на записи заведомо
     больше, чем всего остального.
+
+    Args:
+        labels: Каталог проверенной разметки.
+        stride: Шаг отбора пустых кадров.
+        keep_prefix: Префикс кадров нужной записи.
+        destination: Каталог прореженной разметки.
+
+    Returns:
+        Путь к созданному каталогу.
     """
 
     reset_dir(destination)
@@ -411,7 +515,16 @@ def thin_negatives(*, labels: Path, stride: int, keep_prefix: str, destination: 
 
 
 def split_holdout(*, labels: Path, prefix: str, destination: Path) -> Path:
-    """Разметка отложенной съёмки, отобранная по имени кадра."""
+    """Разметка отложенной съёмки, отобранная по имени кадра.
+
+    Args:
+        labels: Каталог проверенной разметки.
+        prefix: Префикс кадров отложенной съёмки.
+        destination: Каталог отобранной разметки.
+
+    Returns:
+        Путь к созданному каталогу.
+    """
 
     reset_dir(destination)
     for label in sorted(labels.glob("*.txt")):

@@ -137,10 +137,20 @@ class Box:
 
     @property
     def area_share(self) -> float:
+        """Считает долю площади кадра, которую занимает рамка.
+
+        Returns:
+            Доля площади кадра в диапазоне от 0 до 1.
+        """
         return self.width * self.height
 
     @property
     def crop(self) -> str:
+        """Собирает имя JPEG-файла с вырезанным объектом.
+
+        Returns:
+            Имя файла, составленное из основы имени кадра и индекса рамки.
+        """
         return f"{Path(self.file).stem}__{self.index}.jpg"
 
 
@@ -156,12 +166,31 @@ class Answer:
 
 
 def batched(paths: list[Path], size: int) -> Iterator[list[Path]]:
+    """Разбивает список путей на последовательные части.
+
+    Args:
+        paths: Пути, которые нужно разбить на части.
+        size: Максимальное число путей в одной части.
+
+    Yields:
+        Очередная часть списка путей.
+    """
     for start in range(0, len(paths), size):
         yield paths[start : start + size]
 
 
 def cut(*, frame: np.ndarray, box: Box, margin: float, max_side: int) -> np.ndarray:
-    """Вырезка по рамке с полями вокруг, уменьшенная под отправку."""
+    """Вырезка по рамке с полями вокруг, уменьшенная под отправку.
+
+    Args:
+        frame: Исходный кадр.
+        box: Рамка в нормализованных координатах.
+        margin: Дополнительное поле вокруг рамки как доля её размера.
+        max_side: Максимальная длина стороны результата.
+
+    Returns:
+        Изображение вырезанной области.
+    """
 
     height, width = frame.shape[:2]
     half_width = box.width / 2 + box.width * margin
@@ -184,7 +213,14 @@ def cut(*, frame: np.ndarray, box: Box, margin: float, max_side: int) -> np.ndar
 
 
 def scan(config: ReviewConfig) -> list[Box]:
-    """Прогон детектора по папке: рамки с уверенностью и вырезка на каждую."""
+    """Прогон детектора по папке: рамки с уверенностью и вырезка на каждую.
+
+    Args:
+        config: Настройки проверки результатов детектора.
+
+    Returns:
+        Найденные рамки.
+    """
 
     images = find_images(config.source)
     if not images:
@@ -250,6 +286,12 @@ def scan(config: ReviewConfig) -> list[Box]:
 
 
 def write_boxes(*, boxes: list[Box], path: Path) -> None:
+    """Записывает рамки в CSV-файл.
+
+    Args:
+        boxes: Рамки для записи.
+        path: Путь к выходному CSV-файлу.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(BOX_FIELDS))
@@ -272,6 +314,14 @@ def write_boxes(*, boxes: list[Box], path: Path) -> None:
 
 
 def read_boxes_csv(path: Path) -> list[Box]:
+    """Читает рамки из CSV-файла.
+
+    Args:
+        path: Путь к CSV-файлу с рамками.
+
+    Returns:
+        Список прочитанных рамок.
+    """
     with path.open(encoding="utf-8") as handle:
         return [
             Box(
@@ -289,7 +339,15 @@ def read_boxes_csv(path: Path) -> list[Box]:
 
 
 def ask(crop: Path, *, config: ReviewConfig) -> tuple[str, str]:
-    """Одна вырезка — одна категория. Сбой уходит в отчёт, прогон не рвётся."""
+    """Одна вырезка — одна категория. Сбой уходит в отчёт, прогон не рвётся.
+
+    Args:
+        crop: Путь к изображению вырезанного объекта.
+        config: Настройки проверки, включая параметры VLM.
+
+    Returns:
+        Категория объекта и пояснение модели.
+    """
 
     payload = base64.b64encode(crop.read_bytes()).decode("ascii")
     body: dict[str, Any] = {
@@ -326,7 +384,14 @@ def ask(crop: Path, *, config: ReviewConfig) -> tuple[str, str]:
 
 
 def judge(config: ReviewConfig) -> int:
-    """Спрашивает модель про каждую вырезку. Уже отвеченные пропускаются."""
+    """Спрашивает модель про каждую вырезку. Уже отвеченные пропускаются.
+
+    Args:
+        config: Настройки проверки результатов детектора.
+
+    Returns:
+        Число новых записанных ответов.
+    """
 
     boxes = read_boxes_csv(config.boxes_path)
     done = {answer.box_id for answer in read_answers(config.answers_path)}
@@ -358,6 +423,14 @@ def judge(config: ReviewConfig) -> int:
 
 
 def read_answers(path: Path) -> list[Answer]:
+    """Читает ответы VLM из CSV-файла.
+
+    Args:
+        path: Путь к CSV-файлу с ответами.
+
+    Returns:
+        Список ответов; пустой список, если файла нет.
+    """
     if not path.exists():
         return []
     with path.open(encoding="utf-8") as handle:
@@ -380,7 +453,14 @@ def sheet_of_crops(
     columns: int,
     tile: int,
 ) -> None:
-    """Контактный лист из вырезок: подпись сверху, картинка под ней."""
+    """Контактный лист из вырезок: подпись сверху, картинка под ней.
+
+    Args:
+        crops: Пути к изображениям вырезанных объектов.
+        path: Путь для сохранения контактного листа.
+        columns: Число столбцов на листе.
+        tile: Размер квадратной ячейки в пикселях.
+    """
 
     caption = 20
     rows = (len(crops) + columns - 1) // columns
@@ -409,7 +489,15 @@ def sheet_of_frames(
     rows: int,
     side: int,
 ) -> None:
-    """Лист из целых кадров с нарисованными рамками — так виден пропущенный щит."""
+    """Лист из целых кадров с нарисованными рамками — так виден пропущенный щит.
+
+    Args:
+        frames: Пути к исходным кадрам.
+        path: Путь для сохранения контактного листа.
+        columns: Число столбцов на листе.
+        rows: Число строк на листе.
+        side: Максимальный размер стороны кадра на листе.
+    """
 
     caption = 20
     board = Image.new("RGB", (columns * side, rows * (side + caption)), "white")
@@ -443,7 +531,16 @@ def crop_sheets(
     config: ReviewConfig,
     name: str,
 ) -> int:
-    """Режет список рамок на листы по `sheet_columns × sheet_rows`."""
+    """Режет список рамок на листы по `sheet_columns × sheet_rows`.
+
+    Args:
+        boxes: Рамки, вырезки которых нужно разместить на листах.
+        config: Настройки проверки результатов детектора.
+        name: Префикс имён выходных файлов.
+
+    Returns:
+        Число созданных контактных листов.
+    """
 
     per_sheet = config.sheet_columns * config.sheet_rows
     sheets = 0
@@ -468,7 +565,17 @@ def frame_sheets(
     config: ReviewConfig,
     name: str,
 ) -> int:
-    """Листы целых кадров: имя кадра в подписи, рамки поверх картинки."""
+    """Листы целых кадров: имя кадра в подписи, рамки поверх картинки.
+
+    Args:
+        files: Имена кадров для размещения на листах.
+        boxes_by_file: Рамки, сгруппированные по имени кадра.
+        config: Настройки проверки результатов детектора.
+        name: Префикс имён выходных файлов.
+
+    Returns:
+        Число созданных контактных листов.
+    """
 
     per_sheet = config.frame_columns * config.frame_rows
     sheets = 0
@@ -488,7 +595,15 @@ def frame_sheets(
 
 
 def frames_without_boxes(*, source: Path, boxes: list[Box]) -> list[str]:
-    """Кадры, на которых детектор не нашёл ничего: там ищут пропущенный щит."""
+    """Кадры, на которых детектор не нашёл ничего: там ищут пропущенный щит.
+
+    Args:
+        source: Каталог с исходными кадрами.
+        boxes: Найденные рамки.
+
+    Returns:
+        Имена кадров без рамок.
+    """
 
     seen = {box.file for box in boxes}
     return [path.name for path in find_images(source) if path.name not in seen]
@@ -519,6 +634,14 @@ class ApplyCounts:
 
 
 def read_verdicts(path: Path) -> dict[int, str]:
+    """Читает ручные вердикты из CSV-файла.
+
+    Args:
+        path: Путь к CSV-файлу с вердиктами.
+
+    Returns:
+        Вердикты, сопоставленные индексам рамок.
+    """
     if not path.exists():
         return {}
     with path.open(encoding="utf-8") as handle:
@@ -526,7 +649,16 @@ def read_verdicts(path: Path) -> dict[int, str]:
 
 
 def decide(*, box: Box, answer: Answer | None, verdicts: dict[int, str]) -> str:
-    """Судьба рамки: слово человека важнее ответа модели."""
+    """Судьба рамки: слово человека важнее ответа модели.
+
+    Args:
+        box: Проверяемая рамка.
+        answer: Ответ VLM для рамки, если он есть.
+        verdicts: Ручные вердикты по индексам рамок.
+
+    Returns:
+        Решение о том, как обработать рамку.
+    """
 
     human = verdicts.get(box.box_id)
     if human:
@@ -544,6 +676,12 @@ def apply_verdicts(config: ReviewConfig) -> ApplyCounts:
     же поступаем с кадрами, где детектор не нашёл ничего: на проверке оказалось,
     что реклама там почти всегда есть, просто модель её не увидела, и записать
     такой кадр пустым значит научить её и дальше не видеть пустые щиты.
+
+    Args:
+        config: Настройки проверки результатов детектора.
+
+    Returns:
+        Счётчики применённых решений.
     """
 
     boxes = read_boxes_csv(config.boxes_path)
@@ -676,6 +814,13 @@ def pack_disputed(config: ReviewConfig, *, class_name: str = "ad_object") -> tup
     Все рамки едут одним классом: и решённые, и спорные. Владелец правит их
     как обычную разметку, лишние удаляет, пропущенные дорисовывает. Снятые
     рамки в комплект не попадают, они уже решены.
+
+    Args:
+        config: Настройки проверки результатов детектора.
+        class_name: Имя класса в экспортируемой разметке.
+
+    Returns:
+        Пути к архивам изображений и аннотаций, а также число кадров.
     """
 
     boxes = read_boxes_csv(config.boxes_path)
@@ -724,6 +869,13 @@ def import_export(config: ReviewConfig, *, archive: Path) -> tuple[int, int, int
     Файл из выгрузки заменяет кадр целиком: человек видел всё, что там было, и
     его версия последняя. Пустой файл из CVAT значит «рекламы нет», такой кадр
     становится негативом. Отдаёт число кадров, рамок и кадров без рамок.
+
+    Args:
+        config: Настройки проверки результатов детектора.
+        archive: Путь к архиву с экспортом CVAT.
+
+    Returns:
+        Число обработанных кадров, рамок и пустых кадров.
     """
 
     with zipfile.ZipFile(archive) as bundle:
@@ -779,6 +931,14 @@ def merge_scans(*, primary: ReviewConfig, secondary: ReviewConfig, iou_min: floa
     вторая пропустила. Объединение даёт полноту, а мусор из обеих потом снимет
     судья. Совпадающие рамки, перекрытие от `iou_min`, считаются одной и
     остаются в версии основного прогона.
+
+    Args:
+        primary: CSV-файл с основными рамками.
+        secondary: CSV-файл с дополнительными рамками.
+        iou_min: Порог IoU, начиная с которого рамки считают дубликатами.
+
+    Returns:
+        Число добавленных рамок.
     """
 
     base = read_boxes_csv(primary.boxes_path)
@@ -788,6 +948,15 @@ def merge_scans(*, primary: ReviewConfig, secondary: ReviewConfig, iou_min: floa
         by_file.setdefault(box.file, []).append(box)
 
     def overlap(one: Box, two: Box) -> float:
+        """Считает пересечение рамок по метрике IoU.
+
+        Args:
+            one: Первая рамка.
+            two: Вторая рамка.
+
+        Returns:
+            Значение IoU для двух рамок.
+        """
         left = max(one.center_x - one.width / 2, two.center_x - two.width / 2)
         right = min(one.center_x + one.width / 2, two.center_x + two.width / 2)
         top = max(one.center_y - one.height / 2, two.center_y - two.height / 2)

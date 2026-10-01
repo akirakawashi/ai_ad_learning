@@ -37,6 +37,11 @@ TASK = paths.DETECTION
 
 
 def register(tasks: Subparsers) -> None:
+    """Регистрирует команду детекции и её подкоманды.
+
+    Args:
+        tasks: Коллекция подкоманд верхнего уровня.
+    """
     parser = tasks.add_parser(
         "detect",
         help="детектор рекламных щитов",
@@ -60,6 +65,11 @@ def register(tasks: Subparsers) -> None:
 
 
 def _add_prelabel(commands: Subparsers) -> None:
+    """Регистрирует команду псевдоразметки изображений.
+
+    Args:
+        commands: Коллекция подкоманд детекции.
+    """
     defaults = PrelabelConfig()
     parser = command(
         commands,
@@ -78,6 +88,14 @@ def _add_prelabel(commands: Subparsers) -> None:
 
 
 def _prelabel(args: argparse.Namespace) -> int:
+    """Запускает псевдоразметку и выводит сводку по результатам.
+
+    Args:
+        args: Аргументы командной строки.
+
+    Returns:
+        Код успешного завершения 0.
+    """
     config = PrelabelConfig(
         weights=args.weights,
         source=args.source,
@@ -108,6 +126,11 @@ def _prelabel(args: argparse.Namespace) -> int:
 
 
 def _add_bundle(commands: Subparsers) -> None:
+    """Регистрирует команду сборки спорных кадров для CVAT.
+
+    Args:
+        commands: Коллекция подкоманд детекции.
+    """
     defaults = PrelabelConfig()
     parser = command(
         commands,
@@ -122,6 +145,14 @@ def _add_bundle(commands: Subparsers) -> None:
 
 
 def _bundle(args: argparse.Namespace) -> int:
+    """Собирает спорные кадры в архивы для задач CVAT.
+
+    Args:
+        args: Аргументы командной строки.
+
+    Returns:
+        Код успешного завершения 0.
+    """
     parts = bundle.build(
         report_path=args.prelabel / "report.csv",
         images_dir=args.prelabel / "images",
@@ -146,6 +177,11 @@ def _bundle(args: argparse.Namespace) -> int:
 
 
 def _add_build(commands: Subparsers) -> None:
+    """Регистрирует команду сборки набора из ручной и псевдоразметки.
+
+    Args:
+        commands: Коллекция подкоманд детекции.
+    """
     defaults = DatasetConfig(export_archive=Path())
     parser = command(
         commands,
@@ -163,6 +199,14 @@ def _add_build(commands: Subparsers) -> None:
 
 
 def _build(args: argparse.Namespace) -> int:
+    """Собирает набор из ручной и уверенной псевдоразметки.
+
+    Args:
+        args: Аргументы командной строки.
+
+    Returns:
+        Код успешного завершения 0.
+    """
     counts = dataset.build(
         DatasetConfig(
             export_archive=args.export,
@@ -195,6 +239,11 @@ def _build(args: argparse.Namespace) -> int:
 
 
 def _add_handmade(commands: Subparsers) -> None:
+    """Регистрирует команду сборки набора из ручной разметки.
+
+    Args:
+        commands: Коллекция подкоманд детекции.
+    """
     defaults = HandmadeConfig()
     parser = command(
         commands,
@@ -213,6 +262,14 @@ def _add_handmade(commands: Subparsers) -> None:
 
 
 def _handmade(args: argparse.Namespace) -> int:
+    """Собирает набор из распакованных выгрузок CVAT.
+
+    Args:
+        args: Аргументы командной строки.
+
+    Returns:
+        Код успешного завершения 0.
+    """
     counts = handmade.build(
         HandmadeConfig(
             images=args.images,
@@ -248,6 +305,11 @@ def _handmade(args: argparse.Namespace) -> int:
 
 
 def _add_check(commands: Subparsers) -> None:
+    """Регистрирует команду проверки набора данных.
+
+    Args:
+        commands: Коллекция подкоманд детекции.
+    """
     parser = command(
         commands,
         "check",
@@ -263,6 +325,14 @@ def _add_check(commands: Subparsers) -> None:
 
 
 def _check(args: argparse.Namespace) -> int:
+    """Проверяет набор данных и выводит найденные проблемы.
+
+    Args:
+        args: Аргументы командной строки.
+
+    Returns:
+        Код 0 для чистого набора или 1 при наличии замечаний.
+    """
     findings, boxes = checks.inspect(args.dataset, read_images=not args.skip_decode)
 
     for split in dataset.SPLITS:
@@ -288,6 +358,11 @@ def _check(args: argparse.Namespace) -> int:
 
 
 def _add_preview(commands: Subparsers) -> None:
+    """Регистрирует команду создания контактных листов.
+
+    Args:
+        commands: Коллекция подкоманд детекции.
+    """
     parser = command(
         commands,
         "preview",
@@ -307,6 +382,14 @@ def _add_preview(commands: Subparsers) -> None:
 
 
 def _preview(args: argparse.Namespace) -> int:
+    """Создаёт контактные листы с разметкой поверх кадров.
+
+    Args:
+        args: Аргументы командной строки.
+
+    Returns:
+        Код успешного завершения 0.
+    """
     output = args.output / args.split
     frames, sheets = preview.build_sheets(
         images_dir=args.dataset / "images" / args.split,
@@ -328,6 +411,11 @@ def _preview(args: argparse.Namespace) -> int:
 
 
 def _add_train(commands: Subparsers) -> None:
+    """Регистрирует команду обучения детектора.
+
+    Args:
+        commands: Коллекция подкоманд детекции.
+    """
     defaults = TrainConfig()
     parser = command(commands, "train", help="обучить детектор", handler=_train)
     parser.add_argument("--data", type=Path, default=defaults.data)
@@ -341,6 +429,14 @@ def _add_train(commands: Subparsers) -> None:
 
 
 def _train(args: argparse.Namespace) -> int:
+    """Обучает детектор и выводит путь к лучшим весам.
+
+    Args:
+        args: Аргументы командной строки.
+
+    Returns:
+        Код успешного завершения 0.
+    """
     best = train.train(
         TrainConfig(
             data=args.data,
@@ -358,6 +454,11 @@ def _train(args: argparse.Namespace) -> int:
 
 
 def _add_eval(commands: Subparsers) -> None:
+    """Регистрирует команду оценки весов детектора.
+
+    Args:
+        commands: Коллекция подкоманд детекции.
+    """
     defaults = TrainConfig()
     parser = command(
         commands,
@@ -379,6 +480,14 @@ def _add_eval(commands: Subparsers) -> None:
 
 
 def _eval(args: argparse.Namespace) -> int:
+    """Оценивает указанные веса на выбранной части набора.
+
+    Args:
+        args: Аргументы командной строки.
+
+    Returns:
+        Код успешного завершения 0.
+    """
     for weights in args.weights:
         scores = train.evaluate(
             weights=weights,
@@ -402,6 +511,11 @@ def _eval(args: argparse.Namespace) -> int:
 
 
 def _add_review(commands: Subparsers) -> None:
+    """Регистрирует команду проверки псевдоразметки.
+
+    Args:
+        commands: Коллекция подкоманд детекции.
+    """
     defaults = ReviewConfig()
     parser = command(
         commands,
@@ -435,6 +549,14 @@ def _add_review(commands: Subparsers) -> None:
 
 
 def _review(args: argparse.Namespace) -> int:
+    """Выполняет выбранную стадию проверки псевдоразметки.
+
+    Args:
+        args: Аргументы командной строки.
+
+    Returns:
+        Код успешного завершения 0.
+    """
     config = ReviewConfig(
         weights=args.weights,
         source=args.source,
@@ -523,6 +645,11 @@ def _review(args: argparse.Namespace) -> int:
 
 
 def _add_negatives(commands: Subparsers) -> None:
+    """Регистрирует команду подготовки отрицательных примеров.
+
+    Args:
+        commands: Коллекция подкоманд детекции.
+    """
     parser = command(
         commands,
         "negatives",
@@ -539,6 +666,14 @@ def _add_negatives(commands: Subparsers) -> None:
 
 
 def _negatives(args: argparse.Namespace) -> int:
+    """Готовит отрицательные примеры и их преобразованные копии.
+
+    Args:
+        args: Аргументы командной строки.
+
+    Returns:
+        Код успешного завершения 0.
+    """
     originals, augmented, skipped = negatives.prepare(
         negatives.NegativesConfig(
             source=args.source,
@@ -557,12 +692,21 @@ def _negatives(args: argparse.Namespace) -> int:
 
 
 def _dashcam_samples() -> tuple[Path, Path]:
-    """Папки регистратора: кадры и проверенная разметка."""
+    """Папки регистратора: кадры и проверенная разметка.
+
+    Returns:
+        Пути к кадрам регистратора и каталогу с разметкой.
+    """
 
     return paths.DATA / "dashcam", TASK.root / "review_dashcam" / "labels"
 
 
 def _add_build3(commands: Subparsers) -> None:
+    """Регистрирует команду сборки набора из нескольких источников.
+
+    Args:
+        commands: Коллекция подкоманд детекции.
+    """
     defaults = BuildConfig()
     parser = command(
         commands,
@@ -579,6 +723,14 @@ def _add_build3(commands: Subparsers) -> None:
 
 
 def _build3(args: argparse.Namespace) -> int:
+    """Собирает набор из архива, стока, регистратора и негативов.
+
+    Args:
+        args: Аргументы командной строки.
+
+    Returns:
+        Код успешного завершения 0.
+    """
     stock = TASK.root / "review"
     dashcam_images, dashcam_labels = _dashcam_samples()
     thinned = dataset.thin_negatives(

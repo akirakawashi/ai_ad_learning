@@ -29,6 +29,12 @@ class Sample:
 
     @property
     def id(self) -> str:
+        """Собирает устойчивый идентификатор кадра внутри набора.
+
+        Returns:
+            Путь вида `бренд/источник/файл` или `бренд/файл`.
+        """
+
         return (
             f"{self.brand}/{self.source}/{self.path.name}"
             if self.source
@@ -42,6 +48,13 @@ def collect(raw: Path, *, brands: tuple[str, ...] = BRANDS) -> list[Sample]:
     По умолчанию берутся классы обученной головы. VLM знает больше брендов, и для
     её проверки список передаётся отдельно — папки с теми же именами лежат в том же
     `raw/`.
+
+    Args:
+        raw: Корневой каталог кадров, разложенных по брендам.
+        brands: Имена классов, которые нужно прочитать.
+
+    Returns:
+        Кадры всех запрошенных классов в устойчивом порядке.
     """
 
     samples: list[Sample] = []
@@ -58,12 +71,28 @@ def collect(raw: Path, *, brands: tuple[str, ...] = BRANDS) -> list[Sample]:
 
 
 def sources(samples: list[Sample]) -> list[str]:
-    """Источник каждого кадра — для разбора ошибок по конкретным брендам."""
+    """Источник каждого кадра — для разбора ошибок по конкретным брендам.
+
+    Args:
+        samples: Кадры набора.
+
+    Returns:
+        Источник каждого кадра или его класс для плоских каталогов.
+    """
 
     return [item.source or item.brand for item in samples]
 
 
 def labels(samples: list[Sample]) -> np.ndarray:
+    """Преобразует названия брендов в индексы классов.
+
+    Args:
+        samples: Кадры набора.
+
+    Returns:
+        Массив индексов классов в порядке кадров.
+    """
+
     order = {brand: index for index, brand in enumerate(BRANDS)}
     return np.array([order[item.brand] for item in samples], dtype=np.int64)
 
@@ -78,12 +107,28 @@ def duplicate_groups(embeddings: np.ndarray, *, threshold: float) -> np.ndarray:
     Хеши здесь не работают: логотип на белом фоне даёт почти одинаковый
     перцептивный хеш у разных картинок, и группы получаются ложные. Эмбеддинг
     смотрит на содержание, а не на раскладку яркости.
+
+    Args:
+        embeddings: Визуальные эмбеддинги кадров.
+        threshold: Минимальная косинусная близость почти одинаковых кадров.
+
+    Returns:
+        Номер группы почти-дубликатов для каждого кадра.
     """
 
     normalized = embeddings / (np.linalg.norm(embeddings, axis=1, keepdims=True) + 1e-9)
     parent = np.arange(len(normalized))
 
     def find(item: int) -> int:
+        """Находит корень группы и сжимает путь в структуре объединений.
+
+        Args:
+            item: Индекс кадра.
+
+        Returns:
+            Индекс корня группы кадра.
+        """
+
         while parent[item] != item:
             parent[item] = parent[parent[item]]
             item = int(parent[item])

@@ -40,22 +40,52 @@ class PrelabelConfig:
 
     @property
     def labels_dir(self) -> Path:
+        """Возвращает каталог псевдоразметки.
+
+        Returns:
+            Путь к YOLO-файлам разметки.
+        """
+
         return self.output / "labels"
 
     @property
     def images_dir(self) -> Path:
+        """Возвращает каталог изображений псевдоразметки.
+
+        Returns:
+            Путь к ссылкам на исходные изображения.
+        """
+
         return self.output / "images"
 
     @property
     def report_path(self) -> Path:
+        """Возвращает путь к отчёту псевдоразметки.
+
+        Returns:
+            Путь к CSV-отчёту.
+        """
+
         return self.output / "report.csv"
 
     @property
     def review_path(self) -> Path:
+        """Возвращает путь к очереди ручной проверки.
+
+        Returns:
+            Путь к текстовому списку кадров.
+        """
+
         return self.output / "review.txt"
 
     @property
     def cvat_archive(self) -> Path:
+        """Возвращает путь к архиву разметки для CVAT.
+
+        Returns:
+            Путь к ZIP-архиву YOLO 1.1.
+        """
+
         return self.output / "cvat_annotations.zip"
 
 
@@ -176,34 +206,82 @@ class ReviewConfig:
 
     @property
     def crops_dir(self) -> Path:
+        """Возвращает каталог вырезок найденных рамок.
+
+        Returns:
+            Путь к JPEG-вырезкам.
+        """
+
         return self.output / "crops"
 
     @property
     def sheets_dir(self) -> Path:
+        """Возвращает каталог контактных листов проверки.
+
+        Returns:
+            Путь к листам вырезок и кадров.
+        """
+
         return self.output / "sheets"
 
     @property
     def boxes_path(self) -> Path:
+        """Возвращает путь к таблице найденных рамок.
+
+        Returns:
+            Путь к `boxes.csv`.
+        """
+
         return self.output / "boxes.csv"
 
     @property
     def answers_path(self) -> Path:
+        """Возвращает путь к ответам зрительно-языковой модели.
+
+        Returns:
+            Путь к `answers.csv`.
+        """
+
         return self.output / "answers.csv"
 
     @property
     def frames_path(self) -> Path:
+        """Возвращает путь к списку кадров без рамок.
+
+        Returns:
+            Путь к `frames.csv`.
+        """
+
         return self.output / "frames.csv"
 
     @property
     def verdicts_path(self) -> Path:
+        """Возвращает путь к решениям человека.
+
+        Returns:
+            Путь к `verdicts.csv`.
+        """
+
         return self.output / "verdicts.csv"
 
     @property
     def labels_dir(self) -> Path:
+        """Возвращает каталог очищенной разметки.
+
+        Returns:
+            Путь к итоговым YOLO-файлам.
+        """
+
         return self.output / "labels"
 
     @property
     def cvat_list_path(self) -> Path:
+        """Возвращает путь к списку кадров для CVAT.
+
+        Returns:
+            Путь к `for_cvat.txt`.
+        """
+
         return self.output / "for_cvat.txt"
 
 
