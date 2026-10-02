@@ -25,3 +25,23 @@ def test_every_command_is_wired_to_a_handler() -> None:
 def test_a_task_is_required() -> None:
     with pytest.raises(SystemExit):
         build_parser().parse_args([])
+
+
+def test_review_accepts_shared_vlm_credentials() -> None:
+    """Парсер передаёт имя модели и ключ команде VLM-судьи."""
+
+    args = build_parser().parse_args(
+        [
+            "detect",
+            "review",
+            "--stage",
+            "judge",
+            "--model",
+            "qwen3-vl",
+            "--api-key",
+            "secret",
+        ]
+    )
+
+    assert args.model == "qwen3-vl"
+    assert args.api_key == "secret"

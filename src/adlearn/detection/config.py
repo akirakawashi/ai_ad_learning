@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -173,7 +174,9 @@ class ReviewConfig:
 
     `crop_max_side` держит вырезку мелкой намеренно. Щит на вырезке занимает
     почти весь кадр, и полтысячи пикселей ему хватает; крупная картинка
-    разворачивается в тысячи токенов и замедляет ответ вчетверо.
+    разворачивается в тысячи токенов и замедляет ответ вчетверо. `vlm_model` и
+    `vlm_api_key` пусты для своего `llama-server`; общий OpenAI-совместимый сервер
+    получает их из `PIPELINE_VLM_MODEL` и `PIPELINE_VLM_API_KEY` или из CLI.
 
     `empty_frame_stride` решает судьбу кадров, где детектор не нашёл ничего.
     Ноль означает «отдать человеку»: на стоковых фото такие кадры почти всегда
@@ -193,7 +196,11 @@ class ReviewConfig:
     device: str | None = "0"
     crop_margin: float = 0.06
     crop_max_side: int = 640
-    vlm_url: str = "http://127.0.0.1:8080"
+    vlm_url: str = field(
+        default_factory=lambda: os.environ.get("PIPELINE_VLM_URL", "http://127.0.0.1:8080")
+    )
+    vlm_model: str = field(default_factory=lambda: os.environ.get("PIPELINE_VLM_MODEL", ""))
+    vlm_api_key: str = field(default_factory=lambda: os.environ.get("PIPELINE_VLM_API_KEY", ""))
     vlm_timeout_sec: float = 120.0
     vlm_max_tokens: int = 120
     sheet_columns: int = 8

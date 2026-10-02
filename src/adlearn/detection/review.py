@@ -370,10 +370,14 @@ def ask(crop: Path, *, config: ReviewConfig) -> tuple[str, str]:
             "json_schema": {"name": "surface", "schema": SCHEMA, "strict": True},
         },
     }
+    if config.vlm_model:
+        body["model"] = config.vlm_model
+    headers = {"Authorization": f"Bearer {config.vlm_api_key}"} if config.vlm_api_key else {}
     try:
         response = requests.post(
             f"{config.vlm_url.rstrip('/')}/v1/chat/completions",
             json=body,
+            headers=headers,
             timeout=config.vlm_timeout_sec,
         )
         response.raise_for_status()

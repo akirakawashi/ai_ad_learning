@@ -63,6 +63,47 @@ def config(tmp_path: Path) -> ReviewConfig:
     return ReviewConfig(source=source, output=tmp_path / "review")
 
 
+class TestJudgeRequest:
+    def test_shared_server_gets_model_name_and_key(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sent: dict[str, object] = {}
+
+        class Response:
+            def raise_for_status(self) -> None:
+                pass
+
+            def json(self) -> dict[str, object]:
+                return {
+                    "choices": [
+                        {"message": {"content": '{"category":"ad_surface","reason":"щит"}'}}
+                    ]
+                }
+
+        def post(url: str, **kwargs: object) -> Response:
+            sent.update(kwargs, url=url)
+            return Response()
+
+        crop = frame(tmp_path, "crop.jpg")
+        monkeypatch.setattr(review.requests, "post", post)
+        category, reason = review.ask(
+            crop,
+            config=ReviewConfig(
+                vlm_url="https://vlm.example",
+                vlm_model="qwen3-vl",
+                vlm_api_key="secret",
+            ),
+        )
+
+        body = sent["json"]
+        assert isinstance(body, dict)
+        assert category == "ad_surface"
+        assert reason == "щит"
+        assert body["model"] == "qwen3-vl"
+        assert sent["headers"] == {"Authorization": "Bearer secret"}
+        assert sent["url"] == "https://vlm.example/v1/chat/completions"
+
+
 class TestDecide:
     def test_human_word_beats_the_model(self):
         verdicts = {1: review.VERDICT_KEEP}

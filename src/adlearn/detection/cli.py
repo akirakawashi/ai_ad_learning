@@ -538,6 +538,15 @@ def _add_review(commands: Subparsers) -> None:
     parser.add_argument("--batch", type=int, default=defaults.batch_size)
     parser.add_argument("--device", type=str, default=defaults.device)
     parser.add_argument("--vlm-url", type=str, default=defaults.vlm_url)
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=defaults.vlm_model,
+        help="имя VLM: нужно общему серверу, свой llama-server его не смотрит",
+    )
+    parser.add_argument(
+        "--api-key", type=str, default=defaults.vlm_api_key, help="ключ общего VLM-сервера"
+    )
     parser.add_argument("--crop-side", type=int, default=defaults.crop_max_side)
     parser.add_argument("--export", type=Path, help="выгрузка из CVAT для стадии import")
     parser.add_argument(
@@ -567,6 +576,8 @@ def _review(args: argparse.Namespace) -> int:
         device=args.device,
         crop_max_side=args.crop_side,
         vlm_url=args.vlm_url,
+        vlm_model=args.model,
+        vlm_api_key=args.api_key,
         empty_frame_stride=args.empty_stride,
     )
     if args.stage in ("scan", "all"):
